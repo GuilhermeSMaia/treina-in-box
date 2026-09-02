@@ -1,73 +1,114 @@
-# Welcome to your Lovable project
+# 📦 Treina in Box
 
-## Project info
+Plataforma web de cursos online (treinamentos corporativos) construída com **React** e **Supabase**, onde professores e alunos interagem em um mesmo ambiente: conteúdo de aula, chat da turma e aulas ao vivo agendadas via link do Google Meet.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+> Projeto iniciado por um cliente sem experiência em desenvolvimento (usando a plataforma no-code **Lovable**) e assumido e evoluído como desenvolvedor, migrando a base para um fluxo de desenvolvimento tradicional em React + Supabase.
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## Funcionalidades
 
-**Use Lovable**
+- **Conteúdo da aula** — cada treinamento tem uma área de conteúdo com o material disponibilizado pelo professor.
+- **Praça / Chat da turma** — espaço de interação em tempo real entre os alunos matriculados no mesmo treinamento.
+- **Aulas ao vivo** — o professor cadastra a aula informando o link do Google Meet, que fica disponível para os alunos daquele treinamento.
+- **Autenticação de usuários** — cadastro/login por e-mail e senha, login social com Google, recuperação de senha.
+- **Perfis e permissões** — áreas distintas para aluno e administrador/professor (rotas protegidas).
+- **Meu espaço** — área pessoal do aluno dentro de cada treinamento.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+---
 
-Changes made via Lovable will be committed automatically to this repo.
+## Tecnologias
 
-**Use your preferred IDE**
+O projeto é construído com uma stack moderna de front-end desacoplada de um back-end como serviço:
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- **[React](https://react.dev/)** + **TypeScript** — biblioteca principal da interface, com tipagem estática.
+- **[Vite](https://vitejs.dev/)** — build tool e servidor de desenvolvimento.
+- **[Supabase](https://supabase.com/)** — back-end como serviço, usado para:
+  - **Autenticação** (e-mail/senha, OAuth Google, reset de senha);
+  - **Banco de dados PostgreSQL** (treinamentos, conteúdos, mensagens, perfis, etc.);
+  - **Realtime**, para o chat entre alunos.
+- **Tailwind CSS** + **shadcn/ui** — estilização utilitária e biblioteca de componentes acessíveis.
+- **React Router DOM** — roteamento entre páginas e rotas protegidas.
+- **TanStack Query (React Query)** — gerenciamento de estado assíncrono e cache de dados.
+- **React Hook Form** + **Zod** — formulários com validação.
+- **Tiptap** — editor de texto rico usado na criação/edição de conteúdo das aulas.
+- **Vitest** + **Testing Library** — testes automatizados.
+---
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 🚀 Rodando o projeto localmente
 
-Follow these steps:
+### Pré-requisitos
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+- [Node.js](https://nodejs.org/) 18+ (recomendado via [nvm](https://github.com/nvm-sh/nvm))
+- Uma conta e um projeto criado no [Supabase](https://supabase.com/)
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### Passo a passo
 
-# Step 3: Install the necessary dependencies.
-npm i
+```bash
+# 1. Clone o repositório
+git clone https://github.com/GuilhermeSMaia/treina-in-box-main.git
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# 2. Entre na pasta do projeto
+cd treina-in-box-main
+
+# 3. Instale as dependências
+npm install
+
+# 4. Configure as variáveis de ambiente (veja seção abaixo)
+cp .env.example .env
+
+# 5. Rode o servidor de desenvolvimento
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Variáveis de ambiente
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Crie um arquivo `.env` na raiz do projeto com as chaves do seu projeto Supabase (disponíveis em *Project Settings → API*):
 
-**Use GitHub Codespaces**
+```
+VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sua-chave-publica-anon
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Scripts disponíveis
 
-## What technologies are used for this project?
+| Comando            | Descrição                                   |
+| ------------------- | -------------------------------------------- |
+| `npm run dev`       | Inicia o servidor de desenvolvimento         |
+| `npm run build`     | Gera a build de produção                     |
+| `npm run preview`   | Pré-visualiza a build de produção localmente |
+| `npm run lint`      | Roda o linter (ESLint)                       |
+| `npm run test`      | Executa os testes                            |
+| `npm run test:watch`| Executa os testes em modo watch              |
 
-This project is built with:
+---
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🗄️ Banco de dados (Supabase)
 
-## How can I deploy this project?
+A pasta `supabase/` contém as migrations do banco. Caso esteja subindo um projeto Supabase novo, aplique as migrations com a [Supabase CLI](https://supabase.com/docs/guides/cli):
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+```bash
+supabase link --project-ref SEU-PROJECT-REF
+supabase db push
+```
 
-## Can I connect a custom domain to my Lovable project?
+---
 
-Yes, you can!
+## 🧭 Roadmap / próximos passos
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+- [ ] Remover completamente as dependências residuais do Lovable (ver seção abaixo)
+- [ ] Documentar o schema do banco (tabelas e políticas de RLS)
+- [ ] Adicionar CI para lint/test em pull requests
+- [ ] Deploy automatizado
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+---
+
+## 📌 Sobre a origem do projeto
+
+Este projeto foi iniciado com o auxílio da plataforma **Lovable** por um cliente sem experiência técnica, como forma de validar a ideia rapidamente. A partir de um certo ponto, o desenvolvimento passou a ser conduzido por mim de forma manual, mantendo React + Supabase como base e removendo gradualmente as dependências específicas do Lovable (autenticação social, tooling de desenvolvimento e metadados), para que o projeto funcione de forma independente de qualquer plataforma no-code.
+
+---
+
+## 📄 Licença
+
+Defina aqui a licença do projeto (ex.: MIT) ou remova esta seção caso o projeto seja privado/proprietário.
