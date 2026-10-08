@@ -25,7 +25,7 @@ const Lobby = () => {
     if (h < 18) return "Boa tarde";
     return "Boa noite";
   };
-
+ console.log("Lobby data:", data);
   return (
     <AppLayout>
       <div className="p-6 lg:p-8 max-w-6xl mx-auto space-y-8 min-h-screen bg-lobby">
