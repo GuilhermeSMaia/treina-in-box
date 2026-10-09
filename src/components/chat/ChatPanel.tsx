@@ -199,6 +199,7 @@ export function ChatPanel({
                       const canDelete = !!onDelete && canDeleteMessage(message, isOwn);
                       const isEditing = editingId === message.id;
                       const hasText = !!message.content && message.content !== "<p></p>";
+                      const hasAttachments = message.attachments.length > 0;
                       const wasEdited =
                         new Date(message.updated_at).getTime() - new Date(message.created_at).getTime() > 1000;
                       const actions = (canEdit || canDelete) && (
@@ -261,33 +262,29 @@ export function ChatPanel({
                                 </div>
                               </div>
                             ) : (
-                              <>
-                                {hasText && (
-                                  <div className="flex max-w-[85%] items-center gap-1 group-data-[align=end]/message:flex-row-reverse">
-                                    <div
+                              <div className="flex max-w-[85%] items-center gap-1 group-data-[align=end]/message:flex-row-reverse">
+                                <div
+                                  className={cn(
+                                    "min-w-0 rounded-2xl border shadow-sm",
+                                    hasAttachments ? "p-1.5" : "px-3.5 py-2",
+                                    isOwn
+                                      ? "border-chat-bubble-own-border bg-chat-bubble-own"
+                                      : "border-chat-bubble-border bg-chat-bubble"
+                                  )}
+                                >
+                                  {hasAttachments && <ChatAttachments attachments={message.attachments} />}
+                                  {hasText && (
+                                    <RichTextDisplay
+                                      content={message.content}
                                       className={cn(
-                                        "min-w-0 rounded-2xl border px-3.5 py-2 shadow-sm",
-                                        isOwn
-                                          ? "border-chat-bubble-own-border bg-chat-bubble-own"
-                                          : "border-chat-bubble-border bg-chat-bubble"
+                                        "prose-p:my-0 prose-p:leading-relaxed prose-a:break-all prose-img:my-1 prose-img:rounded-lg",
+                                        hasAttachments && "px-2 pb-0.5 pt-1.5"
                                       )}
-                                    >
-                                      <RichTextDisplay
-                                        content={message.content}
-                                        className="prose-p:my-0 prose-p:leading-relaxed prose-a:break-all prose-img:my-1 prose-img:rounded-lg"
-                                      />
-                                    </div>
-                                    {actions}
-                                  </div>
-                                )}
-
-                                {message.attachments.length > 0 && (
-                                  <div className="flex w-full items-center gap-1 group-data-[align=end]/message:flex-row-reverse">
-                                    <ChatAttachments attachments={message.attachments} />
-                                    {!hasText && actions}
-                                  </div>
-                                )}
-                              </>
+                                    />
+                                  )}
+                                </div>
+                                {actions}
+                              </div>
                             )}
 
                             {isLast && !isEditing && (

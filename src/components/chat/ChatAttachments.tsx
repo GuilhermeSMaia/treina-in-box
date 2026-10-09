@@ -37,9 +37,9 @@ export function ChatAttachments({
   const docs = attachments.map((a, i) => ({ a, i })).filter(({ a }) => !isImageAttachment(a));
 
   return (
-    <div className="flex max-w-[85%] flex-col gap-1.5 group-data-[align=end]/message:items-end">
+    <div className="flex flex-col gap-1.5">
       {images.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 group-data-[align=end]/message:justify-end">
+        <div className="flex flex-wrap gap-1.5">
           {images.map(({ a, i }) => (
             <div key={a.url} className="relative">
               <a href={a.url} target="_blank" rel="noopener noreferrer" className="block">
@@ -48,7 +48,7 @@ export function ChatAttachments({
                   alt={a.name}
                   loading="lazy"
                   className={cn(
-                    "rounded-xl border object-cover",
+                    "rounded-xl object-cover",
                     images.length === 1 ? "max-h-64 max-w-full" : "h-32 w-32"
                   )}
                 />
@@ -67,7 +67,7 @@ export function ChatAttachments({
             target="_blank"
             rel="noopener noreferrer"
             download={a.name}
-            className="group/file flex w-64 max-w-full items-center gap-2.5 rounded-xl border bg-chat-bubble px-3 py-2 text-sm transition-colors hover:bg-chat-bubble-own/60"
+            className="group/file flex w-64 max-w-full items-center gap-2.5 rounded-xl border bg-background/70 px-3 py-2 text-sm transition-colors hover:bg-background"
           >
             <DocIcon name={a.name} className="h-5 w-5 shrink-0" />
             <div className="min-w-0 flex-1">
