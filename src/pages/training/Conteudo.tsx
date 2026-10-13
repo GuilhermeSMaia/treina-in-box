@@ -1,10 +1,19 @@
-import { useRef, useState } from "react";
+import { ReactNode, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,14 +34,16 @@ import {
   Download,
   Presentation,
   File,
+  Video,
 } from "lucide-react";
 import { useContentPosts, ContentPost } from "@/hooks/useContentPosts";
+import { useLiveSessions, LiveSession } from "@/hooks/useLiveSessions";
 import { useUserRole } from "@/hooks/useUserRole";
-import { RichTextEditor } from "@/components/RichTextEditor";
+import { FormattedTextarea } from "@/components/FormattedTextarea";
 import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useProfile } from "@/hooks/useProfile";
+import { cn } from "@/lib/utils";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -169,19 +180,17 @@ function AttachmentPickerField({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [typeError, setTypeError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const selectFile = (file: File | undefined) => {
     setTypeError(null);
-    const file = e.target.files?.[0];
     if (!file) return;
     if (!ACCEPTED_MIME.includes(file.type)) {
       setTypeError("Apenas imagens, PDF, Word e PowerPoint são permitidos.");
-      if (inputRef.current) inputRef.current.value = "";
       return;
     }
     const previewUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : "";
     onSelect({ file, previewUrl });
-    if (inputRef.current) inputRef.current.value = "";
   };
 
   return (
@@ -223,35 +232,90 @@ function AttachmentPickerField({
         </div>
       )}
 
-      {/* Picker button — hidden when a file is already selected */}
+      {/* Drop zone — hidden when a file is already selected */}
       {!pending && (
-        <div className="flex items-center gap-3">
+        <>
           <input
             ref={inputRef}
             type="file"
             accept={ACCEPTED_ATTR}
             className="hidden"
-            onChange={handleChange}
+            onChange={(e) => {
+              selectFile(e.target.files?.[0]);
+              e.target.value = "";
+            }}
           />
-          <Button
+          <button
             type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-muted-foreground"
-            onClick={() => { setTypeError(null); inputRef.current?.click(); }}
+            onClick={() => inputRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              selectFile(e.dataTransfer.files[0]);
+            }}
             disabled={isUploading}
+            className={cn(
+              "flex w-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed px-4 py-5 text-center transition-colors hover:border-primary/60 hover:bg-primary/5 disabled:opacity-60",
+              isDragging ? "border-primary bg-primary/5" : "bg-muted/40"
+            )}
           >
-            <Paperclip className="mr-1.5 h-3.5 w-3.5" />
-            {isUploading ? "Enviando…" : "Anexar arquivo"}
-          </Button>
-          <span className="text-[11px] text-muted-foreground/70">
-            Imagem · PDF · Word · PowerPoint
-          </span>
-        </div>
+            <Paperclip className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-foreground">
+              {isUploading ? "Enviando…" : "Clique para anexar ou arraste um arquivo"}
+            </span>
+            <span className="text-[11px] text-muted-foreground">Imagem · PDF · Word · PowerPoint</span>
+          </button>
+        </>
       )}
 
       {typeError && <p className="text-xs text-destructive">{typeError}</p>}
     </div>
+  );
+}
+
+// ─── FormSection ──────────────────────────────────────────────────────────────
+
+function FormSection({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-baseline gap-1.5">
+        <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
+        {hint && <span className="text-[11px] text-muted-foreground/70">{hint}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ─── SessionSelect ────────────────────────────────────────────────────────────
+
+const NO_SESSION = "none";
+
+function SessionSelect({
+  sessions,
+  value,
+  onChange,
+}: {
+  sessions: LiveSession[];
+  value: string | null;
+  onChange: (sessionId: string | null) => void;
+}) {
+  return (
+    <Select value={value ?? NO_SESSION} onValueChange={(v) => onChange(v === NO_SESSION ? null : v)}>
+      <SelectTrigger className="w-full sm:w-80">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={NO_SESSION}>Nenhuma aula</SelectItem>
+        {sessions.map((s) => (
+          <SelectItem key={s.id} value={s.id}>
+            {s.title}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -265,20 +329,23 @@ const Conteudo = () => {
     createPost,
     updatePost,
     deletePost,
-    uploadImage,
     uploadFile,
   } = useContentPosts(trainingId);
+  const { data: sessions = [] } = useLiveSessions(trainingId);
   const { isAdminOrOwner, isMentor } = useUserRole();
   const canEdit = isAdminOrOwner || isMentor;
+  const sessionById = new Map(sessions.map((s) => [s.id, s]));
 
   // ── new post state ──
   const [content, setContent] = useState("");
+  const [sessionNew, setSessionNew] = useState<string | null>(null);
   const [pendingNew, setPendingNew] = useState<PendingAttachment | null>(null);
   const [isUploadingNew, setIsUploadingNew] = useState(false);
 
   // ── edit state ──
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [editSession, setEditSession] = useState<string | null>(null);
   const [pendingEdit, setPendingEdit] = useState<PendingAttachment | null>(null);
   const [editExistingUrl, setEditExistingUrl] = useState<string | null>(null);
   const [editExistingName, setEditExistingName] = useState<string | null>(null);
@@ -290,16 +357,14 @@ const Conteudo = () => {
   const doUpload = async (file: File, setUploading: (v: boolean) => void): Promise<string> => {
     setUploading(true);
     try {
-      const fn = uploadFile ?? uploadImage;
-      return await fn(file);
+      return await uploadFile(file);
     } finally {
       setUploading(false);
     }
   };
 
   const handlePublish = async () => {
-    const hasText = content.trim() && content !== "<p></p>";
-    if (!hasText && !pendingNew) return;
+    if (!content.trim() && !pendingNew) return;
 
     let attachment_url: string | null = null;
     let attachment_name: string | null = null;
@@ -312,10 +377,11 @@ const Conteudo = () => {
     }
 
     createPost.mutate(
-      { content, attachment_url, attachment_name },
+      { content, attachment_url, attachment_name, session_id: sessionNew },
       {
         onSuccess: () => {
           setContent("");
+          setSessionNew(null);
           setPendingNew(null);
         },
       }
@@ -324,7 +390,8 @@ const Conteudo = () => {
 
   const startEdit = (post: ContentPost) => {
     setEditingId(post.id);
-    setEditContent(post.content);
+    setEditContent(post.content === "<p></p>" ? "" : post.content);
+    setEditSession(post.session_id);
     setPendingEdit(null);
     setEditExistingUrl(post.attachment_url ?? null);
     setEditExistingName(post.attachment_name ?? null);
@@ -334,6 +401,7 @@ const Conteudo = () => {
     if (pendingEdit?.previewUrl) URL.revokeObjectURL(pendingEdit.previewUrl);
     setEditingId(null);
     setEditContent("");
+    setEditSession(null);
     setPendingEdit(null);
     setEditExistingUrl(null);
     setEditExistingName(null);
@@ -341,8 +409,7 @@ const Conteudo = () => {
 
   const saveEdit = async () => {
     if (!editingId) return;
-    const hasText = editContent.trim() && editContent !== "<p></p>";
-    if (!hasText && !pendingEdit && !editExistingUrl) return;
+    if (!editContent.trim() && !pendingEdit && !editExistingUrl) return;
 
     let attachment_url = editExistingUrl;
     let attachment_name = editExistingName;
@@ -354,7 +421,7 @@ const Conteudo = () => {
     }
 
     updatePost.mutate(
-      { id: editingId, content: editContent, attachment_url, attachment_name },
+      { id: editingId, content: editContent, attachment_url, attachment_name, session_id: editSession },
       { onSuccess: cancelEdit }
     );
   };
@@ -363,8 +430,6 @@ const Conteudo = () => {
     if (!deleteTargetId) return;
     deletePost.mutate(deleteTargetId, { onSuccess: () => setDeleteTargetId(null) });
   };
-
-  const { data: profile } = useProfile();
 
   if (isLoading) {
     return (
@@ -393,30 +458,37 @@ const Conteudo = () => {
         {/* ── New post composer ── */}
         {canEdit && (
           <Card className="border shadow-none">
-            <CardContent className="pt-5 pb-4 space-y-3">
-              <RichTextEditor
-                content={content}
-                onChange={setContent}
-                placeholder="Publique um novo conteúdo..."
-                onUploadImage={uploadImage}
-              />
+            <CardContent className="pt-5 pb-4 space-y-4">
+              <FormSection label="Aula" hint="(opcional)">
+                <SessionSelect sessions={sessions} value={sessionNew} onChange={setSessionNew} />
+              </FormSection>
 
-              <AttachmentPickerField
-                pending={pendingNew}
-                onSelect={setPendingNew}
-                onRemove={() => {
-                  if (pendingNew?.previewUrl) URL.revokeObjectURL(pendingNew.previewUrl);
-                  setPendingNew(null);
-                }}
-                isUploading={isUploadingNew}
-              />
+              <FormSection label="Mensagem">
+                <FormattedTextarea
+                  value={content}
+                  onChange={setContent}
+                  placeholder="Publique um novo conteúdo..."
+                />
+              </FormSection>
 
-              <div className="flex justify-end">
+              <FormSection label="Anexo" hint="(opcional)">
+                <AttachmentPickerField
+                  pending={pendingNew}
+                  onSelect={setPendingNew}
+                  onRemove={() => {
+                    if (pendingNew?.previewUrl) URL.revokeObjectURL(pendingNew.previewUrl);
+                    setPendingNew(null);
+                  }}
+                  isUploading={isUploadingNew}
+                />
+              </FormSection>
+
+              <div className="flex justify-end border-t pt-3">
                 <Button
                   size="sm"
                   onClick={handlePublish}
                   disabled={
-                    ((!content.trim() || content === "<p></p>") && !pendingNew) ||
+                    (!content.trim() && !pendingNew) ||
                     createPost.isPending ||
                     isUploadingNew
                   }
@@ -447,8 +519,9 @@ const Conteudo = () => {
             {posts.map((post) => {
               const isEditing = editingId === post.id;
               const initials =
-                `${profile?.username?.[0] ?? ""}${profile?.last_name?.[0] ?? ""}`.toUpperCase() ||
+                `${post.profile?.username?.[0] ?? ""}${post.profile?.last_name?.[0] ?? ""}`.toUpperCase() ||
                 "U";
+              const session = post.session_id ? sessionById.get(post.session_id) : undefined;
 
               return (
                 <Card key={post.id} className="border shadow-none">
@@ -466,7 +539,7 @@ const Conteudo = () => {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm font-medium text-foreground">
-                              {profile?.username ?? "Usuário"}
+                              {post.profile?.username ?? "Usuário"}
                             </span>
                             <span className="text-xs text-muted-foreground">
                               {formatDistanceToNow(new Date(post.created_at), {
@@ -474,6 +547,12 @@ const Conteudo = () => {
                                 locale: ptBR,
                               })}
                             </span>
+                            {session && !isEditing && (
+                              <Badge variant="outline" className="gap-1 border-primary/30 font-normal text-foreground">
+                                <Video className="h-3 w-3 text-primary" />
+                                {session.title}
+                              </Badge>
+                            )}
                           </div>
                           {canEdit && !isEditing && (
                             <div className="flex items-center gap-1 shrink-0">
@@ -499,18 +578,22 @@ const Conteudo = () => {
 
                         {/* Body */}
                         {isEditing ? (
-                          <div className="mt-2 space-y-3">
-                            <RichTextEditor
-                              content={editContent}
-                              onChange={setEditContent}
-                              placeholder="Edite o conteúdo..."
-                              onUploadImage={uploadImage}
-                            />
+                          <div className="mt-3 space-y-4">
+                            <FormSection label="Aula" hint="(opcional)">
+                              <SessionSelect sessions={sessions} value={editSession} onChange={setEditSession} />
+                            </FormSection>
 
-                            {/* Show current attachment during edit with option to remove */}
-                            {editExistingUrl && editExistingName && !pendingEdit && (
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground">Anexo atual:</span>
+                            <FormSection label="Mensagem">
+                              <FormattedTextarea
+                                value={editContent}
+                                onChange={setEditContent}
+                                placeholder="Edite o conteúdo..."
+                              />
+                            </FormSection>
+
+                            <FormSection label="Anexo" hint="(opcional)">
+                              {/* Show current attachment during edit with option to remove */}
+                              {editExistingUrl && editExistingName && !pendingEdit && (
                                 <div className="flex items-center gap-2 rounded-lg border bg-secondary/40 px-2.5 py-1.5 text-xs max-w-xs">
                                   <DocIcon name={editExistingName} className="h-3.5 w-3.5 shrink-0" />
                                   <span className="truncate flex-1 min-w-0">{editExistingName}</span>
@@ -523,23 +606,23 @@ const Conteudo = () => {
                                     <X className="h-3 w-3" />
                                   </button>
                                 </div>
-                              </div>
-                            )}
+                              )}
 
-                            {/* New attachment picker (shows only when no existing kept) */}
-                            {!editExistingUrl && (
-                              <AttachmentPickerField
-                                pending={pendingEdit}
-                                onSelect={setPendingEdit}
-                                onRemove={() => {
-                                  if (pendingEdit?.previewUrl) URL.revokeObjectURL(pendingEdit.previewUrl);
-                                  setPendingEdit(null);
-                                }}
-                                isUploading={isUploadingEdit}
-                              />
-                            )}
+                              {/* New attachment picker (shows only when no existing kept) */}
+                              {!editExistingUrl && (
+                                <AttachmentPickerField
+                                  pending={pendingEdit}
+                                  onSelect={setPendingEdit}
+                                  onRemove={() => {
+                                    if (pendingEdit?.previewUrl) URL.revokeObjectURL(pendingEdit.previewUrl);
+                                    setPendingEdit(null);
+                                  }}
+                                  isUploading={isUploadingEdit}
+                                />
+                              )}
+                            </FormSection>
 
-                            <div className="flex justify-end gap-2">
+                            <div className="flex justify-end gap-2 border-t pt-3">
                               <Button variant="outline" size="sm" onClick={cancelEdit}>
                                 <X className="mr-1.5 h-3.5 w-3.5" /> Cancelar
                               </Button>
@@ -547,8 +630,7 @@ const Conteudo = () => {
                                 size="sm"
                                 onClick={saveEdit}
                                 disabled={
-                                  ((!editContent.trim() || editContent === "<p></p>") &&
-                                    !pendingEdit && !editExistingUrl) ||
+                                  (!editContent.trim() && !pendingEdit && !editExistingUrl) ||
                                   updatePost.isPending ||
                                   isUploadingEdit
                                 }
@@ -559,14 +641,21 @@ const Conteudo = () => {
                           </div>
                         ) : (
                           <>
-                            <RichTextDisplay content={post.content} className="mt-1" />
+                            {post.content && post.content !== "<p></p>" && (
+                              <RichTextDisplay content={post.content} className="mt-1" />
+                            )}
 
                             {/* Attachment: image inline or doc download */}
                             {post.attachment_url && post.attachment_name && (
-                              <AttachmentPreview
-                                url={post.attachment_url}
-                                name={post.attachment_name}
-                              />
+                              <div className="mt-3 border-t pt-3">
+                                <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                  <Paperclip className="h-3 w-3" /> Anexo
+                                </p>
+                                <AttachmentPreview
+                                  url={post.attachment_url}
+                                  name={post.attachment_name}
+                                />
+                              </div>
                             )}
                           </>
                         )}

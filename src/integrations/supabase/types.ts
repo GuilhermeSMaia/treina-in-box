@@ -114,6 +114,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          session_id: string | null
           training_id: string
           updated_at: string
           user_id: string
@@ -124,6 +125,7 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          session_id?: string | null
           training_id: string
           updated_at?: string
           user_id: string
@@ -134,11 +136,20 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          session_id?: string | null
           training_id?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "content_posts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "live_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invitations: {
         Row: {

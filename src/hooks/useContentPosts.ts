@@ -12,6 +12,7 @@ export interface ContentPost {
   updated_at: string;
   attachment_url: string | null;   // single text column
   attachment_name: string | null;  // single text column
+  session_id: string | null;       // aula (live_sessions) opcional
   profile?: {
     username: string | null;
     last_name: string | null;
@@ -25,6 +26,7 @@ interface CreatePostPayload {
   content: string;
   attachment_url?: string | null;
   attachment_name?: string | null;
+  session_id?: string | null;
 }
 
 interface UpdatePostPayload {
@@ -32,6 +34,7 @@ interface UpdatePostPayload {
   content: string;
   attachment_url?: string | null;
   attachment_name?: string | null;
+  session_id?: string | null;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -75,6 +78,7 @@ export function useContentPosts(trainingId?: string) {
         updated_at: p.updated_at,
         attachment_url: (p as unknown as Record<string, unknown>)["attachment_url"] as string | null ?? null,
         attachment_name: (p as unknown as Record<string, unknown>)["attachment_name"] as string | null ?? null,
+        session_id: p.session_id ?? null,
         profile: profileMap.get(p.user_id) ?? undefined,
       })) satisfies ContentPost[];
     },
@@ -84,7 +88,7 @@ export function useContentPosts(trainingId?: string) {
   // ── Create ─────────────────────────────────────────────────────────────────
 
   const createPost = useMutation({
-    mutationFn: async ({ content, attachment_url, attachment_name }: CreatePostPayload) => {
+    mutationFn: async ({ content, attachment_url, attachment_name, session_id }: CreatePostPayload) => {
       if (!user?.id || !trainingId) throw new Error("Não autorizado");
       const { error } = await supabase.from("content_posts").insert({
         training_id: trainingId,
@@ -92,6 +96,7 @@ export function useContentPosts(trainingId?: string) {
         content,
         attachment_url: attachment_url ?? null,
         attachment_name: attachment_name ?? null,
+        session_id: session_id ?? null,
       });
       if (error) throw error;
     },
@@ -102,13 +107,14 @@ export function useContentPosts(trainingId?: string) {
   // ── Update ─────────────────────────────────────────────────────────────────
 
   const updatePost = useMutation({
-    mutationFn: async ({ id, content, attachment_url, attachment_name }: UpdatePostPayload) => {
+    mutationFn: async ({ id, content, attachment_url, attachment_name, session_id }: UpdatePostPayload) => {
       const { error } = await supabase
         .from("content_posts")
         .update({
           content,
           attachment_url: attachment_url ?? null,
           attachment_name: attachment_name ?? null,
+          session_id: session_id ?? null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", id);
