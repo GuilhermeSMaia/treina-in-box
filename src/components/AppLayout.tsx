@@ -17,6 +17,7 @@ const sectionLabels: Record<string, string> = {
   conteudo: "Conteúdo",
   praca: "Praça",
   "meu-espaco": "Meu Espaço",
+  aula: "Aula",
 };
 
 export function AppLayout({ children }: { children: ReactNode }) {
@@ -25,7 +26,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { data: trainings } = useTrainings();
 
   const training = trainings?.find((t) => t.id === trainingId);
-  const segment = location.pathname.split("/").pop() ?? "";
+  const segments = location.pathname.split("/");
+  // Em /treino/:id/aula/:sessionId o último segmento é o id da aula
+  const segment = segments.at(-2) === "aula" ? "aula" : segments.at(-1) ?? "";
   const sectionLabel = sectionLabels[segment];
 
   return (

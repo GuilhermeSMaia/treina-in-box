@@ -20,17 +20,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { RichTextDisplay } from "@/components/RichTextDisplay";
+import { ConfirmDeleteDialog } from "@/components/feedback/ConfirmDeleteDialog";
+import { notify } from "@/components/feedback/notify";
 import { cn } from "@/lib/utils";
 import { ChatAttachments } from "./ChatAttachments";
 import { ChatComposer } from "./ChatComposer";
@@ -54,6 +46,8 @@ export interface ChatPanelProps {
   placeholder?: string;
   emptyState?: { icon?: LucideIcon; title: string; description?: string };
   deleteDescription?: string;
+  /** Aviso exibido depois que uma mensagem é excluída. */
+  deletedNotice?: string;
   /** Recebe o conteúdo já convertido em HTML e os anexos já enviados. */
   onSend: (content: string, attachments: ChatAttachment[]) => Promise<boolean>;
   /** Se omitido, o envio de anexos fica desabilitado. */
@@ -77,6 +71,7 @@ export function ChatPanel({
   placeholder,
   emptyState = { title: "Nenhuma mensagem ainda" },
   deleteDescription = "Esta mensagem será removida permanentemente. Esta ação não pode ser desfeita.",
+  deletedNotice = "Mensagem excluída",
   onSend,
   onUploadFile,
   onEdit,
@@ -138,7 +133,10 @@ export function ChatPanel({
 
   const handleDelete = async () => {
     if (!onDelete || !deleteTargetId) return;
-    if (await onDelete(deleteTargetId)) setDeleteTargetId(null);
+    if (await onDelete(deleteTargetId)) {
+      setDeleteTargetId(null);
+      notify.deleted(deletedNotice);
+    }
   };
 
   const groups = groupMessages(messages);
@@ -322,20 +320,13 @@ export function ChatPanel({
         )}
       </div>
 
-      <AlertDialog open={!!deleteTargetId} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-            <AlertDialogDescription>{deleteDescription}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDeleteDialog
+        open={!!deleteTargetId}
+        onOpenChange={(open) => !open && setDeleteTargetId(null)}
+        onConfirm={handleDelete}
+        description={deleteDescription}
+        isPending={isDeleting}
+      />
     </div>
   );
 }

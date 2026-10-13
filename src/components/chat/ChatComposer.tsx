@@ -3,7 +3,8 @@ import { Loader2, Paperclip, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { DocIcon, RemoveButton } from "./ChatAttachments";
+import { AttachmentGroup } from "@/components/ui/attachment";
+import { FileAttachment } from "@/components/FileAttachment";
 import { ACCEPTED_ATTR, ACCEPTED_MIME, MAX_FILES, MAX_FILE_SIZE, formatBytes } from "./chat-utils";
 
 interface PendingFile {
@@ -95,32 +96,20 @@ export function ChatComposer({
       }}
     >
       {pending.length > 0 && (
-        <div className="flex flex-wrap gap-2 px-1 pb-2">
-          {pending.map((p) =>
-            p.previewUrl ? (
-              <div key={p.id} className="relative">
-                <img
-                  src={p.previewUrl}
-                  alt={p.file.name}
-                  className="h-16 w-16 rounded-lg border object-cover"
-                />
-                <RemoveButton onClick={() => removePending(p.id)} className="absolute -right-1.5 -top-1.5" />
-              </div>
-            ) : (
-              <div
-                key={p.id}
-                className="flex h-16 max-w-[14rem] items-center gap-2 rounded-lg border bg-chat-bubble px-3 text-xs"
-              >
-                <DocIcon name={p.file.name} className="h-4 w-4 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{p.file.name}</p>
-                  <p className="text-muted-foreground">{formatBytes(p.file.size)}</p>
-                </div>
-                <RemoveButton onClick={() => removePending(p.id)} />
-              </div>
-            )
-          )}
-        </div>
+        <AttachmentGroup className="px-1 pb-2">
+          {pending.map((p) => (
+            <FileAttachment
+              key={p.id}
+              name={p.file.name}
+              type={p.file.type}
+              size={p.file.size}
+              previewUrl={p.previewUrl || undefined}
+              isUploading={isSending}
+              onRemove={() => removePending(p.id)}
+              className="w-56"
+            />
+          ))}
+        </AttachmentGroup>
       )}
 
       <div className="flex items-end gap-1">

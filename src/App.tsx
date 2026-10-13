@@ -12,6 +12,7 @@ import Lobby from "./pages/Lobby";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import AoVivo from "./pages/training/AoVivo";
+import Aula from "./pages/training/Aula";
 import Conteudo from "./pages/training/Conteudo";
 import Praca from "./pages/training/Praca";
 import MeuEspaco from "./pages/training/MeuEspaco";
@@ -61,6 +62,16 @@ const App = () => (
                 <ProtectedRoute>
                   <TrainingGuard>
                     <AoVivo />
+                  </TrainingGuard>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/treino/:trainingId/aula/:sessionId"
+              element={
+                <ProtectedRoute>
+                  <TrainingGuard>
+                    <Aula />
                   </TrainingGuard>
                 </ProtectedRoute>
               }

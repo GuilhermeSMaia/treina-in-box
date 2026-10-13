@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { BookOpen, Video } from "lucide-react";
@@ -89,7 +89,7 @@ const MeuEspaco = () => {
           {session && (
             <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
               <Video className="h-4 w-4 text-primary" />
-              <span className="font-medium text-foreground">{session.title}</span>
+              <Link to={`/treino/${trainingId}/aula/${session.id}`} className="font-medium text-foreground hover:text-primary hover:underline">{session.title}</Link>
               {session.scheduled_at && (
                 <span>· {format(new Date(session.scheduled_at), "dd 'de' MMMM, HH:mm", { locale: ptBR })}</span>
               )}
@@ -113,6 +113,7 @@ const MeuEspaco = () => {
                 : "Comece a registrar suas anotações e materiais de estudo!",
             }}
             deleteDescription="Esta anotação será removida permanentemente. Esta ação não pode ser desfeita."
+            deletedNotice="Anotação excluída"
             onUploadFile={uploadFile}
             onSend={async (content, attachments) => {
               try {

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
+import { notify } from "@/components/feedback/notify";
 
 export interface ContentPost {
   id: string;
@@ -101,7 +101,7 @@ export function useContentPosts(trainingId?: string) {
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
-    onError: () => toast.error("Erro ao publicar conteúdo. Tente novamente."),
+    onError: () => notify.error("Erro ao publicar conteúdo. Tente novamente."),
   });
 
   // ── Update ─────────────────────────────────────────────────────────────────
@@ -121,7 +121,7 @@ export function useContentPosts(trainingId?: string) {
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
-    onError: () => toast.error("Erro ao atualizar conteúdo."),
+    onError: () => notify.error("Erro ao atualizar conteúdo."),
   });
 
   // ── Delete ─────────────────────────────────────────────────────────────────
@@ -135,7 +135,7 @@ export function useContentPosts(trainingId?: string) {
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
-    onError: () => toast.error("Erro ao deletar conteúdo."),
+    onError: () => notify.error("Erro ao deletar conteúdo."),
   });
 
   // ── Upload helpers ─────────────────────────────────────────────────────────
@@ -147,7 +147,7 @@ export function useContentPosts(trainingId?: string) {
     const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage.from("post-images").upload(path, file);
     if (error) {
-      toast.error("Erro ao enviar imagem.");
+      notify.error("Erro ao enviar imagem.");
       return null;
     }
     const { data: urlData } = supabase.storage.from("post-images").getPublicUrl(path);
@@ -167,7 +167,7 @@ export function useContentPosts(trainingId?: string) {
       .from("post-images")
       .upload(path, file, { contentType: file.type });
     if (error) {
-      toast.error("Erro ao enviar arquivo.");
+      notify.error("Erro ao enviar arquivo.");
       throw error;
     }
     const { data: urlData } = supabase.storage.from("post-images").getPublicUrl(path);

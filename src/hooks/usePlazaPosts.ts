@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
+import { notify } from "@/components/feedback/notify";
 import type { Json } from "@/integrations/supabase/types";
 import { parseAttachments } from "@/components/chat/chat-utils";
 
@@ -109,7 +109,7 @@ export function usePlazaPosts(trainingId?: string) {
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
-    onError: () => toast.error("Erro ao enviar mensagem. Tente novamente."),
+    onError: () => notify.error("Erro ao enviar mensagem. Tente novamente."),
   });
 
   const updatePost = useMutation({
@@ -125,7 +125,7 @@ export function usePlazaPosts(trainingId?: string) {
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
-    onError: () => toast.error("Erro ao atualizar mensagem."),
+    onError: () => notify.error("Erro ao atualizar mensagem."),
   });
 
   const deletePost = useMutation({
@@ -137,7 +137,7 @@ export function usePlazaPosts(trainingId?: string) {
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
-    onError: () => toast.error("Erro ao deletar mensagem."),
+    onError: () => notify.error("Erro ao deletar mensagem."),
   });
 
   /** Upload de um anexo de mensagem (imagem, PDF, Word, PowerPoint). */
@@ -149,7 +149,7 @@ export function usePlazaPosts(trainingId?: string) {
       .from("post-images")
       .upload(path, file, { contentType: file.type });
     if (error) {
-      toast.error(`Erro ao enviar "${file.name}".`);
+      notify.error(`Erro ao enviar "${file.name}".`);
       throw error;
     }
     const { data: urlData } = supabase.storage.from("post-images").getPublicUrl(path);

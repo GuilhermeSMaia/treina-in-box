@@ -11,21 +11,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Video, ExternalLink, Calendar, Pencil, Plus, Trash2, X, Save, MoreHorizontal, NotebookPen } from "lucide-react";
 import { useLiveSessions, LiveSession } from "@/hooks/useLiveSessions";
 import { useUserRole } from "@/hooks/useUserRole";
-import { useToast } from "@/hooks/use-toast";
+import { ConfirmDeleteDialog } from "@/components/feedback/ConfirmDeleteDialog";
+import { notify } from "@/components/feedback/notify";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -81,7 +72,6 @@ const AoVivo = () => {
   const { data: sessions, isLoading } = useLiveSessions(trainingId);
   const { isAdminOrOwner, isMentor } = useUserRole();
   const canEdit = isAdminOrOwner || isMentor;
-  const { toast } = useToast();
   const qc = useQueryClient();
 
   const [showForm, setShowForm] = useState(false);
@@ -104,11 +94,11 @@ const AoVivo = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "Sessão criada" });
+      notify.success("Sessão criada");
       closeForm();
       invalidate();
     },
-    onError: (err: Error) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+    onError: (err: Error) => notify.error("Erro", err.message),
   });
 
   const updateSession = useMutation({
@@ -123,11 +113,11 @@ const AoVivo = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "Sessão atualizada" });
+      notify.success("Sessão atualizada");
       closeForm();
       invalidate();
     },
-    onError: (err: Error) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+    onError: (err: Error) => notify.error("Erro", err.message),
   });
 
   const deleteSession = useMutation({
@@ -136,11 +126,11 @@ const AoVivo = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "Sessão excluída" });
+      notify.deleted("Sessão excluída");
       setDeleteTarget(null);
       invalidate();
     },
-    onError: (err: Error) => toast({ title: "Erro", description: err.message, variant: "destructive" }),
+    onError: (err: Error) => notify.error("Erro", err.message),
   });
 
   const startEdit = (s: LiveSession) => {
@@ -276,7 +266,7 @@ const AoVivo = () => {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-foreground">{session.title}</span>
+                    <Link to={`/treino/${trainingId}/aula/${session.id}`} className="font-medium text-foreground hover:text-primary hover:underline">{session.title}</Link>
                     <Badge variant="default" className="text-xs">Ao Vivo</Badge>
                   </div>
                   {session.scheduled_at && (
@@ -313,7 +303,7 @@ const AoVivo = () => {
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-foreground">{session.title}</span>
+                      <Link to={`/treino/${trainingId}/aula/${session.id}`} className="text-sm font-medium text-foreground hover:text-primary hover:underline">{session.title}</Link>
                       {session.scheduled_at && (
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {format(new Date(session.scheduled_at), "EEEE, dd 'de' MMMM · HH:mm", { locale: ptBR })}
@@ -343,7 +333,7 @@ const AoVivo = () => {
                       <Video className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-foreground">{session.title}</span>
+                      <Link to={`/treino/${trainingId}/aula/${session.id}`} className="text-sm font-medium text-foreground hover:text-primary hover:underline">{session.title}</Link>
                       <p className="text-xs text-muted-foreground mt-0.5">Sem data agendada</p>
                     </div>
                   </div>
@@ -384,26 +374,14 @@ const AoVivo = () => {
         )}
       </div>
 
-      {/* Delete confirmation */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir sessão?</AlertDialogTitle>
-            <AlertDialogDescription>
-              A sessão "{deleteTarget?.title}" será removida permanentemente.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteTarget && deleteSession.mutate(deleteTarget.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && deleteSession.mutate(deleteTarget.id)}
+        title="Excluir sessão?"
+        description={`A sessão "${deleteTarget?.title ?? ""}" será removida permanentemente. Conteúdos e anotações vinculados a ela ficarão sem aula.`}
+        isPending={deleteSession.isPending}
+      />
     </AppLayout>
   );
 };
