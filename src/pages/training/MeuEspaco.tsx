@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { BookOpen, Video } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import {
   Select,
@@ -56,35 +57,33 @@ const MeuEspaco = () => {
     <AppLayout>
       <div className="h-[calc(100vh-2.75rem)] bg-chat-page">
         <div className="mx-auto flex h-full max-w-3xl flex-col px-4 pt-6 pb-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-3 pb-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h1 className="text-xl font-semibold text-foreground">Meu Espaço</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Suas anotações pessoais e materiais de estudo.
-              </p>
-            </div>
-
-            <Select value={sessionId ?? GENERAL} onValueChange={selectSession}>
-              <SelectTrigger className="w-full bg-chat-card sm:w-72" aria-label="Escolher aula">
-                <SelectValue>{session?.title ?? (sessionId ? "Carregando..." : "Anotações gerais")}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={GENERAL}>Anotações gerais</SelectItem>
-                <SelectSeparator />
-                <SelectGroup>
-                  <SelectLabel>Aulas</SelectLabel>
-                  {sessions.length === 0 && (
-                    <p className="px-2 py-1.5 text-xs text-muted-foreground">Nenhuma aula cadastrada.</p>
-                  )}
-                  {sessions.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.title}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
+          <PageHeader
+            className="pb-4"
+            title="Meu Espaço"
+            description="Suas anotações pessoais e materiais de estudo."
+            action={
+              <Select value={sessionId ?? GENERAL} onValueChange={selectSession}>
+                <SelectTrigger className="w-full bg-chat-card sm:w-72" aria-label="Escolher aula">
+                  <SelectValue>{session?.title ?? (sessionId ? "Carregando..." : "Anotações gerais")}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={GENERAL}>Anotações gerais</SelectItem>
+                  <SelectSeparator />
+                  <SelectGroup>
+                    <SelectLabel>Aulas</SelectLabel>
+                    {sessions.length === 0 && (
+                      <p className="px-2 py-1.5 text-xs text-muted-foreground">Nenhuma aula cadastrada.</p>
+                    )}
+                    {sessions.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.title}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            }
+          />
 
           {session && (
             <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">

@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, BookOpen, Calendar, Layers, Plus, MoreVertical, Pencil, Pause, Play, Trash2, Upload, X } from "lucide-react";
+import { BookOpen, Calendar, Layers, Plus, MoreVertical, Pencil, Pause, Play, Trash2, Upload, X } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AppLayout } from "@/components/AppLayout";
@@ -12,8 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { useToast } from "@/hooks/use-toast";
+import { notify } from "@/components/feedback/notify";
+import { ConfirmDeleteDialog } from "@/components/feedback/ConfirmDeleteDialog";
+import { SearchInput } from "@/components/SearchInput";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTrainings, Training } from "@/hooks/useTrainings";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -25,7 +26,6 @@ type DialogType = null | "training" | "edit";
 export default function Treinamentos() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isAdminOrOwner, isMentor } = useUserRole();
   const canManage = isAdminOrOwner || isMentor;
@@ -83,13 +83,11 @@ export default function Treinamentos() {
       }
     },
     onSuccess: () => {
-      toast({ title: editingId ? "Treinamento atualizado" : "Treinamento criado" });
+      notify.success(editingId ? "Treinamento atualizado" : "Treinamento criado");
       queryClient.invalidateQueries({ queryKey: ["trainings"] });
       closeDialog();
     },
-    onError: (err: Error) => {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
-    },
+    onError: (err: Error) => notify.error("Erro", err.message),
   });
 
   const togglePause = useMutation({
@@ -98,12 +96,10 @@ export default function Treinamentos() {
       if (error) throw error;
     },
     onSuccess: (_, { isPaused }) => {
-      toast({ title: isPaused ? "Treinamento reativado" : "Treinamento pausado" });
+      notify.success(isPaused ? "Treinamento reativado" : "Treinamento pausado");
       queryClient.invalidateQueries({ queryKey: ["trainings"] });
     },
-    onError: (err: Error) => {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
-    },
+    onError: (err: Error) => notify.error("Erro", err.message),
   });
 
   const deleteMutation = useMutation({
@@ -112,13 +108,11 @@ export default function Treinamentos() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "Treinamento excluído" });
+      notify.deleted("Treinamento excluído");
       queryClient.invalidateQueries({ queryKey: ["trainings"] });
       setDeleteTarget(null);
     },
-    onError: (err: Error) => {
-      toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
-    },
+    onError: (err: Error) => notify.error("Erro ao excluir", err.message),
   });
 
   const closeDialog = () => {
@@ -147,7 +141,7 @@ export default function Treinamentos() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_FILE_SIZE) {
-      toast({ title: "Arquivo muito grande", description: "O tamanho máximo permitido é 3MB.", variant: "destructive" });
+      notify.error("Arquivo muito grande", "O tamanho máximo permitido é 3MB.");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
@@ -191,12 +185,12 @@ export default function Treinamentos() {
           </div>
 
           {/* Search */}
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gold-muted" />
-            <Input
+          <div className="max-w-md">
+            <SearchInput
               placeholder="Buscar treinamento..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={setSearch}
+              iconClassName="text-gold-muted"
               className="pl-10 bg-lobby-card border-gold/20 text-white placeholder:text-gold-muted/60 focus-visible:ring-gold/40"
             />
           </div>
@@ -371,26 +365,22 @@ export default function Treinamentos() {
         </DialogContent>
       </Dialog>
 
-      {/* AlertDialog: Excluir */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
-        <AlertDialogContent className="bg-lobby-card border-gold/20 text-white">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir treinamento?</AlertDialogTitle>
-            <AlertDialogDescription className="text-gold-muted">
-              Esta ação é irreversível. O treinamento <strong className="text-white">"{deleteTarget?.title}"</strong> e todos os seus módulos, aulas e vínculos serão removidos.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="border-gold/20 text-gold-muted hover:bg-gold/10">Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+        title="Excluir treinamento?"
+        description={
+          <>
+            Esta ação é irreversível. O treinamento <strong className="text-white">"{deleteTarget?.title}"</strong> e
+            todos os seus módulos, aulas e vínculos serão removidos.
+          </>
+        }
+        isPending={deleteMutation.isPending}
+        className="bg-lobby-card border-gold/20 text-white"
+        descriptionClassName="text-gold-muted"
+        cancelClassName="border-gold/20 text-gold-muted hover:bg-gold/10"
+      />
     </AppLayout>
   );
 }

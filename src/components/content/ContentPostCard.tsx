@@ -10,6 +10,7 @@ import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { FileAttachment } from "@/components/FileAttachment";
 import type { ContentPost } from "@/hooks/useContentPosts";
 import { cn } from "@/lib/utils";
+import { getFullName } from "@/lib/names";
 
 interface ContentPostCardProps {
   post: ContentPost;
@@ -26,8 +27,7 @@ interface ContentPostCardProps {
 export function ContentPostCard({ post, session, trainingId, onEdit, onDelete, children }: ContentPostCardProps) {
   const hasActions = !!onEdit || !!onDelete;
   const hasText = !!post.content && post.content !== "<p></p>";
-  const authorName =
-    [post.profile?.username, post.profile?.last_name].filter(Boolean).join(" ") || "Usuário";
+  const authorName = getFullName(post.profile, "Usuário");
 
   return (
     <Card className="border shadow-none">

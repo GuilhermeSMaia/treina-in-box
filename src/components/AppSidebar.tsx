@@ -40,6 +40,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useProfile } from "@/hooks/useProfile";
+import { getFullName, getInitials } from "@/lib/names";
 
 const mainNavItems = [
   { title: "Lobby", url: "/lobby", icon: LayoutDashboard },
@@ -74,7 +75,7 @@ export function AppSidebar() {
   const navItems = isTrainingContext && trainingId
     ? getTrainingNavItems(trainingId)
     : mainNavItems;
-  const initials = `${profile?.username?.[0] ?? ""}${profile?.last_name?.[0] ?? ""}`.toUpperCase() || "U";
+  const initials = getInitials(getFullName(profile, ""));
 
 
   return (

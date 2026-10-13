@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,6 +23,13 @@ import Perfil from "./pages/Perfil";
 
 const queryClient = new QueryClient();
 
+// Rotas dentro de um treinamento: exigem login e matrícula no treinamento
+const TrainingRoute = ({ children }: { children: ReactNode }) => (
+  <ProtectedRoute>
+    <TrainingGuard>{children}</TrainingGuard>
+  </ProtectedRoute>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -31,89 +39,16 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/" element={<Landing />} />
-            <Route
-              path="/lobby"
-              element={
-                <ProtectedRoute>
-                  <Lobby />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/treinamentos"
-              element={
-                <ProtectedRoute>
-                  <Treinamentos />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/perfil"
-              element={
-                <ProtectedRoute>
-                  <Perfil />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/lobby" element={<ProtectedRoute><Lobby /></ProtectedRoute>} />
+            <Route path="/treinamentos" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
+            <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
             {/* Training context routes */}
-            <Route
-              path="/treino/:trainingId/ao-vivo"
-              element={
-                <ProtectedRoute>
-                  <TrainingGuard>
-                    <AoVivo />
-                  </TrainingGuard>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/treino/:trainingId/aula/:sessionId"
-              element={
-                <ProtectedRoute>
-                  <TrainingGuard>
-                    <Aula />
-                  </TrainingGuard>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/treino/:trainingId/conteudo"
-              element={
-                <ProtectedRoute>
-                  <TrainingGuard>
-                    <Conteudo />
-                  </TrainingGuard>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/treino/:trainingId/praca"
-              element={
-                <ProtectedRoute>
-                  <TrainingGuard>
-                    <Praca />
-                  </TrainingGuard>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/treino/:trainingId/meu-espaco"
-              element={
-                <ProtectedRoute>
-                  <TrainingGuard>
-                    <MeuEspaco />
-                  </TrainingGuard>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/configuracoes"
-              element={
-                <AdminRoute>
-                  <Settings />
-                </AdminRoute>
-              }
-            />
+            <Route path="/treino/:trainingId/ao-vivo" element={<TrainingRoute><AoVivo /></TrainingRoute>} />
+            <Route path="/treino/:trainingId/aula/:sessionId" element={<TrainingRoute><Aula /></TrainingRoute>} />
+            <Route path="/treino/:trainingId/conteudo" element={<TrainingRoute><Conteudo /></TrainingRoute>} />
+            <Route path="/treino/:trainingId/praca" element={<TrainingRoute><Praca /></TrainingRoute>} />
+            <Route path="/treino/:trainingId/meu-espaco" element={<TrainingRoute><MeuEspaco /></TrainingRoute>} />
+            <Route path="/configuracoes" element={<AdminRoute><Settings /></AdminRoute>} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

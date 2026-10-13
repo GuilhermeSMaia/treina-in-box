@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { ConfirmDeleteDialog } from "@/components/feedback/ConfirmDeleteDialog";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { getInitials } from "@/lib/names";
 import { notify } from "@/components/feedback/notify";
 import { cn } from "@/lib/utils";
 import { ChatAttachments } from "./ChatAttachments";
@@ -30,7 +32,6 @@ import {
   ChatAttachment,
   ChatMessage,
   formatDayLabel,
-  getInitials,
   groupMessages,
   htmlToText,
   textToHtml,
@@ -140,7 +141,6 @@ export function ChatPanel({
   };
 
   const groups = groupMessages(messages);
-  const EmptyIcon = emptyState.icon ?? MessageSquare;
 
   return (
     <div
@@ -157,15 +157,14 @@ export function ChatPanel({
             <Skeleton className="h-20 w-3/5" />
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center py-16 text-center">
-            <div className="mb-4 rounded-xl bg-chat-bubble-own p-4">
-              <EmptyIcon className="h-8 w-8 text-primary" />
-            </div>
-            <h2 className="mb-1 text-base font-medium text-foreground">{emptyState.title}</h2>
-            {emptyState.description && (
-              <p className="max-w-xs text-sm text-muted-foreground">{emptyState.description}</p>
-            )}
-          </div>
+          <EmptyState
+            card={false}
+            icon={emptyState.icon ?? MessageSquare}
+            title={emptyState.title}
+            description={emptyState.description}
+            className="h-full"
+            iconBoxClassName="bg-chat-bubble-own"
+          />
         ) : (
           <div className="flex flex-col gap-5 py-4">
             {groups.map((group, groupIndex) => {

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { ChatMessage } from "@/components/chat/chat-utils";
 import { usePlazaPosts } from "@/hooks/usePlazaPosts";
@@ -29,12 +30,7 @@ const Praca = () => {
     <AppLayout>
       <div className="h-[calc(100vh-2.75rem)] bg-chat-page">
         <div className="mx-auto flex h-full max-w-3xl flex-col px-4 pt-6 pb-4 sm:px-6 lg:px-8">
-          <div className="pb-4">
-            <h1 className="text-xl font-semibold text-foreground">Praça</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Espaço de interação e troca entre participantes.
-            </p>
-          </div>
+          <PageHeader className="pb-4" title="Praça" description="Espaço de interação e troca entre participantes." />
 
           <ChatPanel
             className="flex-1"

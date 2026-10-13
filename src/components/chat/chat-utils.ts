@@ -93,15 +93,6 @@ export function htmlToText(html: string): string {
   return (doc.body.textContent ?? "").replace(/\n{3,}/g, "\n\n").trim();
 }
 
-export function getInitials(name: string | null | undefined): string {
-  return (name ?? "U")
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
-
 export function formatDayLabel(date: Date): string {
   if (isToday(date)) return "Hoje";
   if (isYesterday(date)) return "Ontem";

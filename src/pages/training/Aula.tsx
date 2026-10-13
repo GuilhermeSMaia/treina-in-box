@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ContentPostCard } from "@/components/content/ContentPostCard";
+import { EmptyState } from "@/components/feedback/EmptyState";
 import { useLiveSessions } from "@/hooks/useLiveSessions";
 import { useContentPosts } from "@/hooks/useContentPosts";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -48,17 +49,7 @@ const Aula = () => {
       <AppLayout>
         <div className="p-6 lg:p-8 max-w-3xl mx-auto space-y-6">
           {backLink}
-          <Card className="border shadow-none">
-            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="rounded-xl bg-secondary p-4 mb-4">
-                <Video className="h-8 w-8 text-primary" />
-              </div>
-              <h2 className="text-base font-medium text-foreground mb-1">Aula não encontrada</h2>
-              <p className="text-sm text-muted-foreground max-w-xs">
-                Esta aula pode ter sido removida.
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyState icon={Video} title="Aula não encontrada" description="Esta aula pode ter sido removida." />
         </div>
       </AppLayout>
     );
@@ -115,7 +106,6 @@ const Aula = () => {
           </CardContent>
         </Card>
 
-        {/* ── Conteúdos da aula ── */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-medium text-muted-foreground">
@@ -133,16 +123,7 @@ const Aula = () => {
           {isLoadingPosts ? (
             <Skeleton className="h-24 w-full" />
           ) : contents.length === 0 ? (
-            <Card className="border shadow-none">
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="rounded-xl bg-secondary p-3 mb-3">
-                  <FileText className="h-6 w-6 text-primary" />
-                </div>
-                <p className="text-sm text-muted-foreground max-w-xs">
-                  Nenhum conteúdo vinculado a esta aula ainda.
-                </p>
-              </CardContent>
-            </Card>
+            <EmptyState icon={FileText} size="sm" description="Nenhum conteúdo vinculado a esta aula ainda." />
           ) : (
             contents.map((post) => <ContentPostCard key={post.id} post={post} />)
           )}

@@ -1,19 +1,16 @@
 import { useState } from "react";
-import { useTablePagination } from "@/hooks/useTablePagination";
-import { TablePagination } from "@/components/settings/TablePagination";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
-import { Search, ShieldCheck, ShieldOff, RefreshCw } from "lucide-react";
+import { DataTableCard } from "@/components/settings/DataTableCard";
+import { SearchInput } from "@/components/SearchInput";
+import { StatusBadge, ROLE_BADGES, ENROLLMENT_STATUS_BADGES } from "@/components/StatusBadge";
+import { notify } from "@/components/feedback/notify";
+import { getFullName } from "@/lib/names";
+import { ShieldOff, RefreshCw } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -30,7 +27,6 @@ interface ProfileWithRole {
 export function UsersTab() {
   const { user } = useAuth();
   const { isOwner } = useUserRole();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
 
@@ -69,12 +65,10 @@ export function UsersTab() {
       if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
-      toast({ title: "Role atualizada com sucesso" });
+      notify.success("Role atualizada com sucesso");
       queryClient.invalidateQueries({ queryKey: ["admin-users-with-roles"] });
     },
-    onError: (err: Error) => {
-      toast({ title: "Erro ao alterar role", description: err.message, variant: "destructive" });
-    },
+    onError: (err: Error) => notify.error("Erro ao alterar role", err.message),
   });
 
   const updateStatus = useMutation({
@@ -86,126 +80,64 @@ export function UsersTab() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "Status atualizado" });
+      notify.success("Status atualizado");
       queryClient.invalidateQueries({ queryKey: ["admin-users-with-roles"] });
     },
-    onError: (err: Error) => {
-      toast({ title: "Erro ao atualizar", description: err.message, variant: "destructive" });
-    },
+    onError: (err: Error) => notify.error("Erro ao atualizar", err.message),
   });
 
- const filtered = users.filter((p) => {
   const q = search.toLowerCase();
-  const full_name = `${p.username ?? ""} ${p.last_name ?? ""}`.trim();
-  return !q || full_name.toLowerCase().includes(q);
-});
-
-  const pagination = useTablePagination(filtered);
-
-  const roleBadge = (role: AppRole | null) => {
-    const map: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-      owner: { label: "Proprietário", variant: "default" },
-      admin: { label: "Admin", variant: "secondary" },
-      mentor: { label: "Mentor", variant: "outline" },
-      student: { label: "Aluno", variant: "outline" },
-    };
-    if (!role) return <Badge variant="outline">Sem role</Badge>;
-    const s = map[role] ?? { label: role, variant: "outline" };
-    return <Badge variant={s.variant}>{s.label}</Badge>;
-  };
-
-  const statusBadge = (status: string) => {
-    const map: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-      active: { label: "Ativo", variant: "default" },
-      blocked: { label: "Bloqueado", variant: "destructive" },
-      expired: { label: "Expirado", variant: "outline" },
-    };
-    const s = map[status] ?? { label: status, variant: "outline" };
-    return <Badge variant={s.variant}>{s.label}</Badge>;
-  };
+  const filtered = users.filter((p) => !q || getFullName(p, "").toLowerCase().includes(q));
 
   const allowedRoles: AppRole[] = isOwner ? ["admin", "mentor", "student"] : ["mentor", "student"];
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Gestão de Usuários</CardTitle>
-        <CardDescription>Gerencie roles e status dos usuários.</CardDescription>
-        <div className="relative mt-2">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar por nome..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
-        ) : filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhum usuário encontrado.</p>
-        ) : (
-          <>
-            <div className="overflow-x-auto -mx-6 px-6">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pagination.paginatedItems.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-medium">{p.username + " " + p.last_name || "Sem nome"}</TableCell>
-                      <TableCell>{roleBadge(p.role)}</TableCell>
-                      <TableCell>{statusBadge(p.enrollment_status)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {p.role !== "owner" && p.user_id !== user?.id && (
-                            <Select
-                              value={p.role ?? ""}
-                              onValueChange={(v) => changeRole.mutate({ targetUserId: p.user_id, newRole: v as AppRole })}
-                            >
-                              <SelectTrigger className="w-28 h-8 text-xs">
-                                <SelectValue placeholder="Role" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {allowedRoles.map((r) => (
-                                  <SelectItem key={r} value={r} className="capitalize">{r}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                          {p.enrollment_status !== "active" && (
-                            <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ userId: p.user_id, status: "active" })} disabled={updateStatus.isPending}>
-                              <RefreshCw className="mr-1 h-3 w-3" />Renovar
-                            </Button>
-                          )}
-                          {p.enrollment_status !== "blocked" && p.role !== "owner" && (
-                            <Button size="sm" variant="destructive" onClick={() => updateStatus.mutate({ userId: p.user_id, status: "blocked" })} disabled={updateStatus.isPending}>
-                              <ShieldOff className="mr-1 h-3 w-3" />Bloquear
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+    <DataTableCard
+      title="Gestão de Usuários"
+      description="Gerencie roles e status dos usuários."
+      toolbar={<SearchInput placeholder="Buscar por nome..." value={search} onChange={setSearch} />}
+      items={filtered}
+      getRowKey={(p) => p.id}
+      isLoading={isLoading}
+      emptyMessage="Nenhum usuário encontrado."
+      columns={[
+        { header: "Nome", cellClassName: "font-medium", cell: (p) => getFullName(p) },
+        { header: "Role", cell: (p) => <StatusBadge value={p.role} map={ROLE_BADGES} fallback="Sem role" /> },
+        { header: "Status", cell: (p) => <StatusBadge value={p.enrollment_status} map={ENROLLMENT_STATUS_BADGES} /> },
+        {
+          header: "Ações",
+          className: "text-right",
+          cell: (p) => (
+            <div className="flex items-center justify-end gap-2">
+              {p.role !== "owner" && p.user_id !== user?.id && (
+                <Select
+                  value={p.role ?? ""}
+                  onValueChange={(v) => changeRole.mutate({ targetUserId: p.user_id, newRole: v as AppRole })}
+                >
+                  <SelectTrigger className="h-8 w-28 text-xs">
+                    <SelectValue placeholder="Role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allowedRoles.map((r) => (
+                      <SelectItem key={r} value={r}>{ROLE_BADGES[r].label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {p.enrollment_status !== "active" && (
+                <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ userId: p.user_id, status: "active" })} disabled={updateStatus.isPending}>
+                  <RefreshCw className="mr-1 h-3 w-3" />Renovar
+                </Button>
+              )}
+              {p.enrollment_status !== "blocked" && p.role !== "owner" && (
+                <Button size="sm" variant="destructive" onClick={() => updateStatus.mutate({ userId: p.user_id, status: "blocked" })} disabled={updateStatus.isPending}>
+                  <ShieldOff className="mr-1 h-3 w-3" />Bloquear
+                </Button>
+              )}
             </div>
-            <TablePagination
-              currentPage={pagination.currentPage}
-              totalPages={pagination.totalPages}
-              totalItems={pagination.totalItems}
-              hasNextPage={pagination.hasNextPage}
-              hasPrevPage={pagination.hasPrevPage}
-              onNextPage={pagination.nextPage}
-              onPrevPage={pagination.prevPage}
-              onGoToPage={pagination.goToPage}
-            />
-          </>
-        )}
-      </CardContent>
-    </Card>
+          ),
+        },
+      ]}
+    />
   );
 }

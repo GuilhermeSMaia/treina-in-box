@@ -1,6 +1,4 @@
 import { useState, useMemo } from "react";
-import { useTablePagination } from "@/hooks/useTablePagination";
-import { TablePagination } from "@/components/settings/TablePagination";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,23 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
-import { Mail, MessageCircle, Link2, Copy, Check, RotateCw, XCircle, Search, Upload } from "lucide-react";
+import { Mail, MessageCircle, Link2, Copy, Check, RotateCw, XCircle, Upload } from "lucide-react";
 import { BulkImportDialog } from "@/components/settings/BulkImportDialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { DataTableCard } from "@/components/settings/DataTableCard";
+import { SearchInput } from "@/components/SearchInput";
+import { StatusBadge, INVITATION_STATUS_BADGES, ROLE_BADGES } from "@/components/StatusBadge";
+import { ConfirmDeleteDialog } from "@/components/feedback/ConfirmDeleteDialog";
+import { notify } from "@/components/feedback/notify";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -36,7 +24,6 @@ type Channel = "email" | "whatsapp" | "link";
 export function InvitationsTab() {
   const { user } = useAuth();
   const { isOwner, isAdmin } = useUserRole();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: trainings = [] } = useTrainings();
 
@@ -88,8 +75,6 @@ export function InvitationsTab() {
     });
   }, [invitations, searchQuery, filterStatus, filterChannel, filterRole]);
 
-  const invPagination = useTablePagination(filteredInvitations);
-
   const sendInvite = useMutation({
     mutationFn: async () => {
   if (!user?.id) throw new Error("Não autenticado");
@@ -134,12 +119,12 @@ export function InvitationsTab() {
           `Você foi convidado para participar do treinamento na Treina in Box! Acesse: ${inviteLink}`
         );
         window.open(`https://wa.me/${cleanPhone}?text=${msg}`, "_blank");
-        toast({ title: "Convite criado", description: "WhatsApp aberto com o link de convite." });
+        notify.success("Convite criado", "WhatsApp aberto com o link de convite.");
       } else if (channel === "link") {
         navigator.clipboard.writeText(inviteLink);
-        toast({ title: "Link gerado e copiado!", description: inviteLink });
+        notify.success("Link gerado e copiado!", inviteLink);
       } else {
-        toast({ title: "Convite enviado", description: `Convite para ${email} registrado com sucesso.` });
+        notify.success("Convite enviado", `Convite para ${email} registrado com sucesso.`);
       }
 
       setEmail("");
@@ -148,9 +133,7 @@ export function InvitationsTab() {
       setTrainingId("");
       queryClient.invalidateQueries({ queryKey: ["invitations"] });
     },
-    onError: (err: Error) => {
-      toast({ title: "Erro ao enviar convite", description: err.message, variant: "destructive" });
-    },
+    onError: (err: Error) => notify.error("Erro ao enviar convite", err.message),
   });
 
   const cancelInvite = useMutation({
@@ -159,13 +142,11 @@ export function InvitationsTab() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "Convite cancelado" });
+      notify.deleted("Convite cancelado");
       setCancellingId(null);
       queryClient.invalidateQueries({ queryKey: ["invitations"] });
     },
-    onError: (err: Error) => {
-      toast({ title: "Erro ao cancelar", description: err.message, variant: "destructive" });
-    },
+    onError: (err: Error) => notify.error("Erro ao cancelar", err.message),
   });
 
   const resendInvite = (inv: any) => {
@@ -175,13 +156,13 @@ export function InvitationsTab() {
       const cleanPhone = (inv.phone ?? "").replace(/\D/g, "");
       const msg = encodeURIComponent(`Você foi convidado para participar do treinamento na Treina in Box! Acesse: ${inviteLink}`);
       window.open(`https://wa.me/${cleanPhone}?text=${msg}`, "_blank");
-      toast({ title: "WhatsApp aberto com o convite" });
+      notify.success("WhatsApp aberto com o convite");
     } else if (ch === "link") {
       navigator.clipboard.writeText(inviteLink);
-      toast({ title: "Link copiado novamente!" });
+      notify.success("Link copiado novamente!");
     } else {
       navigator.clipboard.writeText(inviteLink);
-      toast({ title: "Link do convite copiado", description: `Envie manualmente para ${inv.email}` });
+      notify.success("Link do convite copiado", `Envie manualmente para ${inv.email}`);
     }
   };
 
@@ -191,28 +172,14 @@ export function InvitationsTab() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const statusBadge = (status: string) => {
-    const map: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-      pending: { label: "Pendente", variant: "secondary" },
-      accepted: { label: "Aceito", variant: "default" },
-      expired: { label: "Expirado", variant: "outline" },
-      cancelled: { label: "Cancelado", variant: "destructive" },
-    };
-    const s = map[status] ?? { label: status, variant: "outline" };
-    return <Badge variant={s.variant}>{s.label}</Badge>;
-  };
+  const CHANNELS = {
+    email: { icon: Mail, label: "Email" },
+    whatsapp: { icon: MessageCircle, label: "WhatsApp" },
+    link: { icon: Link2, label: "Link" },
+  } as const;
+  const channelInfo = (ch: string | null) => CHANNELS[(ch ?? "email") as Channel] ?? CHANNELS.email;
 
-  const channelIcon = (ch: string) => {
-    if (ch === "whatsapp") return <MessageCircle className="h-3.5 w-3.5" />;
-    if (ch === "link") return <Link2 className="h-3.5 w-3.5" />;
-    return <Mail className="h-3.5 w-3.5" />;
-  };
-
-  const channelLabel = (ch: string) => {
-    if (ch === "whatsapp") return "WhatsApp";
-    if (ch === "link") return "Link";
-    return "Email";
-  };
+  const cancellingInvite = invitations.find((inv) => inv.id === cancellingId);
 
   const trainingName = (tid: string | null) => {
     if (!tid) return "—";
@@ -265,9 +232,7 @@ export function InvitationsTab() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {allowedInviteRoles.map((r) => (
-                      <SelectItem key={r} value={r} className="capitalize">
-                        {r === "admin" ? "Admin" : r === "mentor" ? "Mentor" : "Aluno"}
-                      </SelectItem>
+                      <SelectItem key={r} value={r}>{ROLE_BADGES[r].label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -319,158 +284,131 @@ export function InvitationsTab() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="text-lg">Convites Enviados</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          {/* Filter bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar por email..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
-            </div>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os status</SelectItem>
-                <SelectItem value="pending">Pendente</SelectItem>
-                <SelectItem value="accepted">Aceito</SelectItem>
-                <SelectItem value="expired">Expirado</SelectItem>
-                <SelectItem value="cancelled">Cancelado</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filterChannel} onValueChange={setFilterChannel}>
-              <SelectTrigger><SelectValue placeholder="Canal" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os canais</SelectItem>
-                <SelectItem value="email">Email</SelectItem>
-                <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                <SelectItem value="link">Link</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filterRole} onValueChange={setFilterRole}>
-              <SelectTrigger><SelectValue placeholder="Role" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as roles</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="mentor">Mentor</SelectItem>
-                <SelectItem value="student">Aluno</SelectItem>
-              </SelectContent>
-            </Select>
+      <DataTableCard
+        title="Convites Enviados"
+        toolbar={
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <SearchInput placeholder="Buscar por email..." value={searchQuery} onChange={setSearchQuery} />
+            <FilterSelect
+              value={filterStatus}
+              onChange={setFilterStatus}
+              allLabel="Todos os status"
+              options={Object.entries(INVITATION_STATUS_BADGES).map(([value, s]) => ({ value, label: s.label }))}
+            />
+            <FilterSelect
+              value={filterChannel}
+              onChange={setFilterChannel}
+              allLabel="Todos os canais"
+              options={Object.entries(CHANNELS).map(([value, c]) => ({ value, label: c.label }))}
+            />
+            <FilterSelect
+              value={filterRole}
+              onChange={setFilterRole}
+              allLabel="Todas as roles"
+              options={(["admin", "mentor", "student"] as const).map((value) => ({ value, label: ROLE_BADGES[value].label }))}
+            />
           </div>
+        }
+        items={filteredInvitations}
+        getRowKey={(inv) => inv.id}
+        isLoading={isLoading}
+        emptyMessage="Nenhum convite encontrado."
+        columns={[
+          {
+            header: "Email / Contato",
+            cellClassName: "font-medium",
+            cell: (inv) => (inv.channel === "whatsapp" ? inv.phone || inv.email : inv.email),
+          },
+          {
+            header: "Canal",
+            cell: (inv) => {
+              const { icon: Icon, label } = channelInfo(inv.channel);
+              return (
+                <span className="flex items-center gap-1.5 text-xs">
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </span>
+              );
+            },
+          },
+          { header: "Role", cell: (inv) => ROLE_BADGES[inv.role]?.label ?? inv.role },
+          { header: "Treinamento", cellClassName: "text-xs", cell: (inv) => trainingName(inv.training_id) },
+          { header: "Status", cell: (inv) => <StatusBadge value={inv.status} map={INVITATION_STATUS_BADGES} /> },
+          {
+            header: "Data",
+            cellClassName: "text-xs text-muted-foreground",
+            cell: (inv) => new Date(inv.created_at).toLocaleDateString("pt-BR"),
+          },
+          {
+            header: "",
+            cell: (inv) => (
+              <>
+                {inv.invite_token && (
+                  <Button variant="ghost" size="sm" onClick={() => copyLink(inv.invite_token)} className="h-7 px-2" title="Copiar link">
+                    {copiedId === inv.invite_token ? (
+                      <Check className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                )}
+                {inv.status === "pending" && (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => resendInvite(inv)} className="h-7 px-2" title="Reenviar">
+                      <RotateCw className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setCancellingId(inv.id)}
+                      className="h-7 px-2 text-destructive hover:text-destructive"
+                      title="Cancelar convite"
+                    >
+                      <XCircle className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                )}
+              </>
+            ),
+          },
+        ]}
+      />
 
-          {isLoading ? (
-            <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
-          ) : filteredInvitations.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum convite encontrado.</p>
-          ) : (
-            <>
-              <div className="overflow-x-auto -mx-6 px-6">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Email / Contato</TableHead>
-                      <TableHead>Canal</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Treinamento</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Data</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {invPagination.paginatedItems.map((inv: any) => (
-                      <TableRow key={inv.id}>
-                        <TableCell className="font-medium">
-                          {inv.channel === "whatsapp" ? inv.phone || inv.email : inv.email}
-                        </TableCell>
-                        <TableCell>
-                          <span className="flex items-center gap-1.5 text-xs">
-                            {channelIcon(inv.channel ?? "email")}
-                            {channelLabel(inv.channel ?? "email")}
-                          </span>
-                        </TableCell>
-                        <TableCell className="capitalize">{inv.role}</TableCell>
-                        <TableCell className="text-xs">{trainingName(inv.training_id)}</TableCell>
-                        <TableCell>{statusBadge(inv.status)}</TableCell>
-                        <TableCell className="text-muted-foreground text-xs">{new Date(inv.created_at).toLocaleDateString("pt-BR")}</TableCell>
-                        <TableCell>
-                          {inv.invite_token && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => copyLink(inv.invite_token)}
-                              className="h-7 px-2"
-                            >
-                              {copiedId === inv.invite_token ? (
-                                <Check className="h-3.5 w-3.5 text-green-500" />
-                              ) : (
-                                <Copy className="h-3.5 w-3.5" />
-                              )}
-                            </Button>
-                          )}
-                          {inv.status === "pending" && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => resendInvite(inv)}
-                                className="h-7 px-2"
-                                title="Reenviar"
-                              >
-                                <RotateCw className="h-3.5 w-3.5" />
-                              </Button>
-                              <AlertDialog open={cancellingId === inv.id} onOpenChange={(o) => !o && setCancellingId(null)}>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setCancellingId(inv.id)}
-                                    className="h-7 px-2 text-destructive hover:text-destructive"
-                                    title="Cancelar convite"
-                                  >
-                                    <XCircle className="h-3.5 w-3.5" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Cancelar convite?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      O convite para {inv.email} será cancelado e o link deixará de funcionar.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Voltar</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => cancelInvite.mutate(inv.id)}
-                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    >
-                                      Cancelar Convite
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <TablePagination
-                currentPage={invPagination.currentPage}
-                totalPages={invPagination.totalPages}
-                totalItems={invPagination.totalItems}
-                hasNextPage={invPagination.hasNextPage}
-                hasPrevPage={invPagination.hasPrevPage}
-                onNextPage={invPagination.nextPage}
-                onPrevPage={invPagination.prevPage}
-                onGoToPage={invPagination.goToPage}
-              />
-            </>
-          )}
-        </CardContent>
-      </Card>
+      <ConfirmDeleteDialog
+        open={!!cancellingId}
+        onOpenChange={(o) => !o && setCancellingId(null)}
+        onConfirm={() => cancellingId && cancelInvite.mutate(cancellingId)}
+        icon={XCircle}
+        title="Cancelar convite?"
+        description={`O convite para ${cancellingInvite?.email ?? ""} será cancelado e o link deixará de funcionar.`}
+        confirmLabel="Cancelar convite"
+        cancelLabel="Voltar"
+        isPending={cancelInvite.isPending}
+      />
     </div>
+  );
+}
+
+function FilterSelect({
+  value,
+  onChange,
+  allLabel,
+  options,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  allLabel: string;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger><SelectValue /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">{allLabel}</SelectItem>
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

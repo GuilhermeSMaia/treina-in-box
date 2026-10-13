@@ -1,28 +1,22 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Video, ExternalLink, Calendar, Pencil, Plus, Trash2, X, Save, MoreHorizontal, NotebookPen } from "lucide-react";
+import { Video, Plus, X, Save } from "lucide-react";
 import { useLiveSessions, LiveSession } from "@/hooks/useLiveSessions";
 import { useUserRole } from "@/hooks/useUserRole";
+import { PageHeader } from "@/components/PageHeader";
+import { SessionCard } from "@/components/live/SessionCard";
+import { EmptyState } from "@/components/feedback/EmptyState";
 import { ConfirmDeleteDialog } from "@/components/feedback/ConfirmDeleteDialog";
 import { notify } from "@/components/feedback/notify";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 interface SessionForm {
   title: string;
@@ -32,40 +26,6 @@ interface SessionForm {
 }
 
 const emptyForm: SessionForm = { title: "", meeting_url: "", scheduled_at: "", is_active: false };
-
-const SessionActions = ({
-  session,
-  onEdit,
-  onDelete,
-}: {
-  session: LiveSession;
-  onEdit: (s: LiveSession) => void;
-  onDelete: (s: LiveSession) => void;
-}) => (
-  <DropdownMenu>
-    <DropdownMenuTrigger asChild>
-      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-        <MoreHorizontal className="h-4 w-4" />
-      </Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="end">
-      <DropdownMenuItem onClick={() => onEdit(session)}>
-        <Pencil className="mr-2 h-3.5 w-3.5" /> Editar
-      </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => onDelete(session)} className="text-destructive focus:text-destructive">
-        <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir
-      </DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>
-);
-
-const NotesButton = ({ trainingId, session }: { trainingId?: string; session: LiveSession }) => (
-  <Button size="sm" variant="ghost" className="text-muted-foreground" asChild>
-    <Link to={`/treino/${trainingId}/meu-espaco?aula=${session.id}`} title="Minhas anotações desta aula">
-      <NotebookPen className="mr-1.5 h-4 w-4" /> Anotar
-    </Link>
-  </Button>
-);
 
 const AoVivo = () => {
   const { trainingId } = useParams();
@@ -81,39 +41,22 @@ const AoVivo = () => {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["live-sessions", trainingId] });
 
-  const createSession = useMutation({
+  const saveSession = useMutation({
     mutationFn: async () => {
       if (!trainingId) throw new Error("Treinamento não encontrado");
-      const { error } = await supabase.from("live_sessions").insert({
-        training_id: trainingId,
+      const values = {
         title: form.title,
         meeting_url: form.meeting_url || null,
         scheduled_at: form.scheduled_at || null,
         is_active: form.is_active,
-      });
+      };
+      const { error } = editingId
+        ? await supabase.from("live_sessions").update(values).eq("id", editingId)
+        : await supabase.from("live_sessions").insert({ ...values, training_id: trainingId });
       if (error) throw error;
     },
     onSuccess: () => {
-      notify.success("Sessão criada");
-      closeForm();
-      invalidate();
-    },
-    onError: (err: Error) => notify.error("Erro", err.message),
-  });
-
-  const updateSession = useMutation({
-    mutationFn: async () => {
-      if (!editingId) throw new Error("ID não definido");
-      const { error } = await supabase.from("live_sessions").update({
-        title: form.title,
-        meeting_url: form.meeting_url || null,
-        scheduled_at: form.scheduled_at || null,
-        is_active: form.is_active,
-      }).eq("id", editingId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      notify.success("Sessão atualizada");
+      notify.success(editingId ? "Sessão atualizada" : "Sessão criada");
       closeForm();
       invalidate();
     },
@@ -152,8 +95,7 @@ const AoVivo = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingId) updateSession.mutate();
-    else createSession.mutate();
+    saveSession.mutate();
   };
 
   const activeSessions = sessions?.filter((s) => s.is_active) ?? [];
@@ -174,26 +116,26 @@ const AoVivo = () => {
   }
 
   const isEmpty = !activeSessions.length && !upcomingSessions.length && !otherSessions.length;
+  const cardActions = canEdit ? { onEdit: startEdit, onDelete: setDeleteTarget } : {};
+  const sections = [
+    { title: "Próximas sessões", items: upcomingSessions, variant: "upcoming" as const },
+    { title: "Outras sessões", items: otherSessions, variant: "other" as const },
+  ];
 
   return (
     <AppLayout>
       <div className="p-6 lg:p-8 max-w-3xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">Ao Vivo</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Aulas ao vivo e sessões em tempo real.
-            </p>
-          </div>
-          {canEdit && (
-            <Button
-              size="sm"
-              onClick={() => { closeForm(); setShowForm(true); }}
-            >
-              <Plus className="mr-1.5 h-4 w-4" /> Nova sessão
-            </Button>
-          )}
-        </div>
+        <PageHeader
+          title="Ao Vivo"
+          description="Aulas ao vivo e sessões em tempo real."
+          action={
+            canEdit && (
+              <Button size="sm" onClick={() => { closeForm(); setShowForm(true); }}>
+                <Plus className="mr-1.5 h-4 w-4" /> Nova sessão
+              </Button>
+            )
+          }
+        />
 
         {/* Form */}
         {showForm && (
@@ -243,7 +185,7 @@ const AoVivo = () => {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button type="submit" size="sm" disabled={createSession.isPending || updateSession.isPending}>
+                  <Button type="submit" size="sm" disabled={saveSession.isPending}>
                     <Save className="mr-1.5 h-4 w-4" />
                     {editingId ? "Salvar" : "Criar"}
                   </Button>
@@ -256,121 +198,32 @@ const AoVivo = () => {
           </Card>
         )}
 
-        {/* Active sessions */}
         {activeSessions.map((session) => (
-          <Card key={session.id} className="border-primary/30 border shadow-none">
-            <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-5">
-              <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-primary/10 p-3">
-                  <Video className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Link to={`/treino/${trainingId}/aula/${session.id}`} className="font-medium text-foreground hover:text-primary hover:underline">{session.title}</Link>
-                    <Badge variant="default" className="text-xs">Ao Vivo</Badge>
-                  </div>
-                  {session.scheduled_at && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {format(new Date(session.scheduled_at), "dd MMM · HH:mm", { locale: ptBR })}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <NotesButton trainingId={trainingId} session={session} />
-                {session.meeting_url && (
-                  <Button size="sm" asChild>
-                    <a href={session.meeting_url} target="_blank" rel="noopener noreferrer">
-                      Entrar <ExternalLink className="ml-1" />
-                    </a>
-                  </Button>
-                )}
-                {canEdit && <SessionActions session={session} onEdit={startEdit} onDelete={setDeleteTarget} />}
-              </div>
-            </CardContent>
-          </Card>
+          <SessionCard key={session.id} session={session} trainingId={trainingId} variant="active" {...cardActions} />
         ))}
 
-        {/* Upcoming sessions */}
-        {upcomingSessions.length > 0 && (
-          <div className="space-y-3">
-            <h2 className="text-sm font-medium text-muted-foreground">Próximas sessões</h2>
-            {upcomingSessions.map((session) => (
-              <Card key={session.id} className="border shadow-none">
-                <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-lg bg-secondary p-2.5">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <Link to={`/treino/${trainingId}/aula/${session.id}`} className="text-sm font-medium text-foreground hover:text-primary hover:underline">{session.title}</Link>
-                      {session.scheduled_at && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {format(new Date(session.scheduled_at), "EEEE, dd 'de' MMMM · HH:mm", { locale: ptBR })}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <NotesButton trainingId={trainingId} session={session} />
-                    {canEdit && <SessionActions session={session} onEdit={startEdit} onDelete={setDeleteTarget} />}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {/* Other sessions */}
-        {otherSessions.length > 0 && (
-          <div className="space-y-3">
-            <h2 className="text-sm font-medium text-muted-foreground">Outras sessões</h2>
-            {otherSessions.map((session) => (
-              <Card key={session.id} className="border shadow-none">
-                <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-lg bg-secondary p-2.5">
-                      <Video className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <Link to={`/treino/${trainingId}/aula/${session.id}`} className="text-sm font-medium text-foreground hover:text-primary hover:underline">{session.title}</Link>
-                      <p className="text-xs text-muted-foreground mt-0.5">Sem data agendada</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <NotesButton trainingId={trainingId} session={session} />
-                    {session.meeting_url && (
-                      <Button size="sm" variant="outline" asChild>
-                        <a href={session.meeting_url} target="_blank" rel="noopener noreferrer">
-                          Entrar <ExternalLink className="ml-1" />
-                        </a>
-                      </Button>
-                    )}
-                    {canEdit && <SessionActions session={session} onEdit={startEdit} onDelete={setDeleteTarget} />}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {/* Empty state */}
-        {isEmpty && !showForm && (
-          <Card className="border shadow-none">
-            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="rounded-xl bg-secondary p-4 mb-4">
-                <Video className="h-8 w-8 text-primary" />
+        {sections.map(
+          ({ title, items, variant }) =>
+            items.length > 0 && (
+              <div key={variant} className="space-y-3">
+                <h2 className="text-sm font-medium text-muted-foreground">{title}</h2>
+                {items.map((session) => (
+                  <SessionCard key={session.id} session={session} trainingId={trainingId} variant={variant} {...cardActions} />
+                ))}
               </div>
-              <h2 className="text-base font-medium text-foreground mb-1">
-                Nenhuma aula agendada
-              </h2>
-              <p className="text-sm text-muted-foreground max-w-xs">
-                {canEdit
-                  ? "Clique em \"Nova sessão\" para criar uma aula ao vivo."
-                  : "Quando houver uma aula ao vivo, o link aparecerá aqui."}
-              </p>
-            </CardContent>
-          </Card>
+            )
+        )}
+
+        {isEmpty && !showForm && (
+          <EmptyState
+            icon={Video}
+            title="Nenhuma aula agendada"
+            description={
+              canEdit
+                ? "Clique em \"Nova sessão\" para criar uma aula ao vivo."
+                : "Quando houver uma aula ao vivo, o link aparecerá aqui."
+            }
+          />
         )}
       </div>
 
