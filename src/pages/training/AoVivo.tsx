@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Video, ExternalLink, Calendar, Pencil, Plus, Trash2, X, Save, MoreHorizontal } from "lucide-react";
+import { Video, ExternalLink, Calendar, Pencil, Plus, Trash2, X, Save, MoreHorizontal, NotebookPen } from "lucide-react";
 import { useLiveSessions, LiveSession } from "@/hooks/useLiveSessions";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useToast } from "@/hooks/use-toast";
@@ -66,6 +66,14 @@ const SessionActions = ({
       </DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>
+);
+
+const NotesButton = ({ trainingId, session }: { trainingId?: string; session: LiveSession }) => (
+  <Button size="sm" variant="ghost" className="text-muted-foreground" asChild>
+    <Link to={`/treino/${trainingId}/meu-espaco?aula=${session.id}`} title="Minhas anotações desta aula">
+      <NotebookPen className="mr-1.5 h-4 w-4" /> Anotar
+    </Link>
+  </Button>
 );
 
 const AoVivo = () => {
@@ -279,6 +287,7 @@ const AoVivo = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <NotesButton trainingId={trainingId} session={session} />
                 {session.meeting_url && (
                   <Button size="sm" asChild>
                     <a href={session.meeting_url} target="_blank" rel="noopener noreferrer">
@@ -312,7 +321,10 @@ const AoVivo = () => {
                       )}
                     </div>
                   </div>
-                  {canEdit && <SessionActions session={session} onEdit={startEdit} onDelete={setDeleteTarget} />}
+                  <div className="flex items-center gap-2">
+                    <NotesButton trainingId={trainingId} session={session} />
+                    {canEdit && <SessionActions session={session} onEdit={startEdit} onDelete={setDeleteTarget} />}
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -336,6 +348,7 @@ const AoVivo = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <NotesButton trainingId={trainingId} session={session} />
                     {session.meeting_url && (
                       <Button size="sm" variant="outline" asChild>
                         <a href={session.meeting_url} target="_blank" rel="noopener noreferrer">

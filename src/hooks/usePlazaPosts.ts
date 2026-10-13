@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import type { Json } from "@/integrations/supabase/types";
+import { parseAttachments } from "@/components/chat/chat-utils";
 
 export interface PlazaAttachment {
   url: string;
@@ -36,14 +37,6 @@ interface UpdatePostPayload {
   id: string;
   content: string;
   attachments?: PlazaAttachment[];
-}
-
-function parseAttachments(value: Json | undefined): PlazaAttachment[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter(
-    (a): a is PlazaAttachment & Json =>
-      !!a && typeof a === "object" && typeof (a as Record<string, unknown>).url === "string"
-  ) as unknown as PlazaAttachment[];
 }
 
 export function usePlazaPosts(trainingId?: string) {

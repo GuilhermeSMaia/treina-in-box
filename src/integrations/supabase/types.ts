@@ -322,30 +322,44 @@ export type Database = {
       }
       space_posts: {
         Row: {
+          attachments: Json
           content: string
           created_at: string
           id: string
+          session_id: string | null
           training_id: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          attachments?: Json
           content: string
           created_at?: string
           id?: string
+          session_id?: string | null
           training_id: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          attachments?: Json
           content?: string
           created_at?: string
           id?: string
+          session_id?: string | null
           training_id?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "space_posts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "live_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       training_enrollments: {
         Row: {

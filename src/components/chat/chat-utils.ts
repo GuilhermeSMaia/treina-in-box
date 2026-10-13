@@ -1,5 +1,6 @@
 import { format, isSameDay, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import type { Json } from "@/integrations/supabase/types";
 
 export interface ChatAttachment {
   url: string;
@@ -37,6 +38,14 @@ export const MAX_FILES = 5;
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 // Mensagens do mesmo autor enviadas dentro deste intervalo são agrupadas
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
+
+export function parseAttachments(value: Json | undefined): ChatAttachment[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (a): a is ChatAttachment & Json =>
+      !!a && typeof a === "object" && typeof (a as Record<string, unknown>).url === "string"
+  ) as unknown as ChatAttachment[];
+}
 
 export function isImageAttachment(a: { type: string; name: string }): boolean {
   return a.type.startsWith("image/") || /\.(png|jpe?g|gif|webp)$/i.test(a.name);
