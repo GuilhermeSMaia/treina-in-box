@@ -11,20 +11,29 @@ import type { LiveSession } from "@/hooks/useLiveSessions";
 export interface SessionFormValues {
   title: string;
   meeting_url: string;
-  scheduled_at: string;
+  /** yyyy-MM-dd, horário local */
+  date: string;
+  /** HH:mm, horário local */
+  start_time: string;
+  /** HH:mm, horário local */
+  end_time: string;
   is_active: boolean;
 }
 
-const toFormValues = (s?: LiveSession | null): SessionFormValues =>
-  s
-    ? {
-        title: s.title,
-        meeting_url: s.meeting_url ?? "",
-        // Converte o horário salvo (UTC) para o horário local que o input datetime-local espera
-        scheduled_at: s.scheduled_at ? format(new Date(s.scheduled_at), "yyyy-MM-dd'T'HH:mm") : "",
-        is_active: s.is_active,
-      }
-    : { title: "", meeting_url: "", scheduled_at: "", is_active: false };
+// Converte os horários salvos (UTC) para o horário local que os inputs date/time esperam
+const toFormValues = (s?: LiveSession | null): SessionFormValues => {
+  if (!s) return { title: "", meeting_url: "", date: "", start_time: "", end_time: "", is_active: false };
+  const start = s.scheduled_at ? new Date(s.scheduled_at) : null;
+  const end = s.ends_at ? new Date(s.ends_at) : null;
+  return {
+    title: s.title,
+    meeting_url: s.meeting_url ?? "",
+    date: start ? format(start, "yyyy-MM-dd") : "",
+    start_time: start ? format(start, "HH:mm") : "",
+    end_time: end ? format(end, "HH:mm") : "",
+    is_active: s.is_active,
+  };
+};
 
 interface SessionFormProps {
   session?: LiveSession | null;
@@ -35,12 +44,23 @@ interface SessionFormProps {
 
 export function SessionForm({ session, isPending, onSubmit, onCancel }: SessionFormProps) {
   const [form, setForm] = useState<SessionFormValues>(() => toFormValues(session));
+  const [timeError, setTimeError] = useState<string | null>(null);
   const isEditing = !!session;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Sem "Ao vivo", a sessão não tem link nem agendamento: a data exibida é a da postagem.
-    onSubmit(form.is_active ? form : { ...form, meeting_url: "", scheduled_at: "" });
+    if (!form.is_active) {
+      onSubmit({ ...form, meeting_url: "", date: "", start_time: "", end_time: "" });
+      return;
+    }
+    // Horários no formato HH:mm comparam corretamente como texto
+    if (form.end_time <= form.start_time) {
+      setTimeError("O horário de fim deve ser depois do horário de início.");
+      return;
+    }
+    setTimeError(null);
+    onSubmit(form);
   };
 
   return (
@@ -83,13 +103,38 @@ export function SessionForm({ session, isPending, onSubmit, onCancel }: SessionF
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Data e hora</Label>
+                  <Label>Data da aula</Label>
                   <Input
-                    type="datetime-local"
-                    value={form.scheduled_at}
-                    onChange={(e) => setForm({ ...form, scheduled_at: e.target.value })}
+                    type="date"
+                    value={form.date}
+                    onChange={(e) => setForm({ ...form, date: e.target.value })}
+                    required
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+                  <div className="space-y-1.5">
+                    <Label>Início</Label>
+                    <Input
+                      type="time"
+                      value={form.start_time}
+                      onChange={(e) => setForm({ ...form, start_time: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Fim</Label>
+                    <Input
+                      type="time"
+                      value={form.end_time}
+                      onChange={(e) => setForm({ ...form, end_time: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground sm:col-span-2">
+                  A aula aparece como "ao vivo" para os alunos entre o horário de início e o de fim.
+                </p>
+                {timeError && <p className="text-xs text-destructive sm:col-span-2">{timeError}</p>}
               </>
             )}
           </div>

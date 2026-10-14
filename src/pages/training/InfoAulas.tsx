@@ -83,7 +83,8 @@ const Aula = () => {
                 <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                   <Calendar className="h-3.5 w-3.5" />
                   {session.scheduled_at
-                    ? format(new Date(session.scheduled_at), "EEEE, dd 'de' MMMM 'de' yyyy · HH:mm", { locale: ptBR })
+                    ? format(new Date(session.scheduled_at), "EEEE, dd 'de' MMMM 'de' yyyy · HH:mm", { locale: ptBR }) +
+                      (session.ends_at ? ` – ${format(new Date(session.ends_at), "HH:mm")}` : "")
                     : "Sem data agendada"}
                 </p>
               </div>

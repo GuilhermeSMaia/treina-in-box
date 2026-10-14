@@ -188,7 +188,13 @@ const Landing = () => {
 
         const { confirmEmail } = await signUpWithEmail(email, password, username, last_name, Object.keys(extraMeta).length > 0 ? extraMeta : undefined);
         if (confirmEmail) {
-          setSuccess("Conta criada! Verifique seu email para confirmar o cadastro.");
+          // Volta para o login mantendo o email preenchido
+          setUsername("");
+          setLastName("");
+          setPassword("");
+          setConfirmPassword("");
+          setView("login");
+          setSuccess("Conta criada! Verifique seu email para confirmar o cadastro e depois faça login.");
         }
       } else {
         const result = forgotSchema.safeParse({ email });
@@ -282,7 +288,7 @@ const Landing = () => {
         )}
 
         {/* Form */}
-        {!success && (
+        {(!success || view === "login") && (
           <form onSubmit={handleSubmit} className="space-y-4 text-left">
             {view === "forgot" && (
               <button
@@ -440,7 +446,7 @@ const Landing = () => {
           </form>
         )}
 
-        {success && (
+        {success && view !== "login" && (
           <Button
             variant="outline"
             onClick={() => { clearForm(); setView("login"); }}

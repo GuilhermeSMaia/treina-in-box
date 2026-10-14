@@ -60,6 +60,17 @@ export function InvitationsTab() {
 
   const appUrl = `${window.location.origin}${import.meta.env.BASE_URL}`.replace(/\/$/, "");
 
+  const sendInviteEmail = async (invitationId: string) => {
+    const { data, error } = await supabase.functions.invoke("send-invite", {
+      body: { invitation_id: invitationId, redirect_to: `${appUrl}/reset-password?convite=1` },
+    });
+    if (error) {
+      const body = await (error as any).context?.json?.().catch(() => null);
+      throw new Error(body?.error ?? error.message);
+    }
+    if (data?.error) throw new Error(data.error);
+  };
+
   const filteredInvitations = useMemo(() => {
     return invitations.filter((inv: any) => {
       if (searchQuery) {
@@ -96,8 +107,10 @@ export function InvitationsTab() {
 
   if (error) throw error;
 
+  let invitation = data;
+
   // Se o token não veio no insert (trigger assíncrono), busca novamente
-  if (!data.invite_token) {
+  if (!invitation.invite_token) {
     const { data: fetched, error: fetchError } = await supabase
       .from("invitations")
       .select("*")
@@ -106,10 +119,18 @@ export function InvitationsTab() {
 
     if (fetchError) throw fetchError;
     if (!fetched.invite_token) throw new Error("Token não gerado. Verifique o trigger no Supabase.");
-    return fetched;
+    invitation = fetched;
   }
 
-  return data;
+  if (channel === "email") {
+    try {
+      await sendInviteEmail(invitation.id);
+    } catch (err) {
+      throw new Error(`Convite registrado, mas o email não foi enviado: ${(err as Error).message}`);
+    }
+  }
+
+  return invitation;
 },    onSuccess: (data) => {
       const inviteLink = `${appUrl}/?invite=${data.invite_token}`;
 
@@ -124,7 +145,7 @@ export function InvitationsTab() {
         navigator.clipboard.writeText(inviteLink);
         notify.success("Link gerado e copiado!", inviteLink);
       } else {
-        notify.success("Convite enviado", `Convite para ${email} registrado com sucesso.`);
+        notify.success("Convite enviado", `Email de convite enviado para ${email}.`);
       }
 
       setEmail("");
@@ -133,7 +154,10 @@ export function InvitationsTab() {
       setTrainingId("");
       queryClient.invalidateQueries({ queryKey: ["invitations"] });
     },
-    onError: (err: Error) => notify.error("Erro ao enviar convite", err.message),
+    onError: (err: Error) => {
+      notify.error("Erro ao enviar convite", err.message);
+      queryClient.invalidateQueries({ queryKey: ["invitations"] });
+    },
   });
 
   const cancelInvite = useMutation({
@@ -149,7 +173,7 @@ export function InvitationsTab() {
     onError: (err: Error) => notify.error("Erro ao cancelar", err.message),
   });
 
-  const resendInvite = (inv: any) => {
+  const resendInvite = async (inv: any) => {
     const inviteLink = `${appUrl}/?invite=${inv.invite_token}`;
     const ch = inv.channel ?? "email";
     if (ch === "whatsapp") {
@@ -161,8 +185,13 @@ export function InvitationsTab() {
       navigator.clipboard.writeText(inviteLink);
       notify.success("Link copiado novamente!");
     } else {
-      navigator.clipboard.writeText(inviteLink);
-      notify.success("Link do convite copiado", `Envie manualmente para ${inv.email}`);
+      try {
+        await sendInviteEmail(inv.id);
+        notify.success("Email de convite enviado", inv.email);
+        queryClient.invalidateQueries({ queryKey: ["invitations"] });
+      } catch (err) {
+        notify.error("Erro ao reenviar convite", (err as Error).message);
+      }
     }
   };
 

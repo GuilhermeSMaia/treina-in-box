@@ -233,6 +233,7 @@ export type Database = {
       live_sessions: {
         Row: {
           created_at: string
+          ends_at: string | null
           id: string
           is_active: boolean
           meeting_url: string | null
@@ -242,6 +243,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          ends_at?: string | null
           id?: string
           is_active?: boolean
           meeting_url?: string | null
@@ -251,6 +253,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          ends_at?: string | null
           id?: string
           is_active?: boolean
           meeting_url?: string | null

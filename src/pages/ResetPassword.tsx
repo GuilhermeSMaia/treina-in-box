@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,8 +16,18 @@ const resetSchema = z.object({
   path: ["confirmPassword"],
 });
 
+const nameSchema = z.object({
+  username: z.string().trim().min(1, "Informe seu nome"),
+  last_name: z.string().trim().min(1, "Informe seu sobrenome"),
+});
+
 const ResetPassword = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // Usuário chegou pelo email de convite (inviteUserByEmail): define nome e senha
+  const isInvite = searchParams.has("convite");
+  const [username, setUsername] = useState("");
+  const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -47,23 +57,51 @@ const ResetPassword = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Após ativar a conta pelo convite, redireciona automaticamente
+  useEffect(() => {
+    if (!success || !isInvite) return;
+    const timer = setTimeout(() => navigate("/", { replace: true }), 1500);
+    return () => clearTimeout(timer);
+  }, [success, isInvite, navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setFieldErrors({});
 
+    const errs: Record<string, string> = {};
     const result = resetSchema.safeParse({ password, confirmPassword });
     if (!result.success) {
-      const errs: Record<string, string> = {};
       result.error.errors.forEach((e) => { errs[e.path[0] as string] = e.message; });
+    }
+    if (isInvite) {
+      const nameResult = nameSchema.safeParse({ username, last_name: lastName });
+      if (!nameResult.success) {
+        nameResult.error.errors.forEach((e) => { errs[e.path[0] as string] = e.message; });
+      }
+    }
+    if (Object.keys(errs).length > 0) {
       setFieldErrors(errs);
       return;
     }
 
     setSubmitting(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password });
+      const { data, error } = await supabase.auth.updateUser(
+        isInvite
+          ? { password, data: { username: username.trim(), last_name: lastName.trim() } }
+          : { password }
+      );
       if (error) throw error;
+
+      if (isInvite && data.user) {
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .update({ username: username.trim(), last_name: lastName.trim() })
+          .eq("user_id", data.user.id);
+        if (profileError) throw profileError;
+      }
+
       setSuccess(true);
     } catch (err: any) {
       setError(err?.message || "Erro ao redefinir a senha.");
@@ -88,7 +126,7 @@ const ResetPassword = () => {
             <Box className="h-7 w-7 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Redefinir senha
+            {isInvite ? "Ative sua conta" : "Redefinir senha"}
           </h1>
         </div>
 
@@ -97,7 +135,9 @@ const ResetPassword = () => {
             <Alert variant="destructive" className="text-left">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Link inválido ou expirado. Solicite um novo link de recuperação.
+                {isInvite
+                  ? "Link de convite inválido ou expirado. Peça um novo convite ao administrador."
+                  : "Link inválido ou expirado. Solicite um novo link de recuperação."}
               </AlertDescription>
             </Alert>
             <Button onClick={() => navigate("/")} className="w-full">
@@ -115,8 +155,37 @@ const ResetPassword = () => {
               </Alert>
             )}
 
+            {isInvite && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="username">Nome</Label>
+                  <Input
+                    id="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    autoComplete="given-name"
+                  />
+                  {fieldErrors.username && (
+                    <p className="text-xs text-destructive">{fieldErrors.username}</p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="last_name">Sobrenome</Label>
+                  <Input
+                    id="last_name"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    autoComplete="family-name"
+                  />
+                  {fieldErrors.last_name && (
+                    <p className="text-xs text-destructive">{fieldErrors.last_name}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-1.5">
-              <Label htmlFor="password">Nova senha</Label>
+              <Label htmlFor="password">{isInvite ? "Senha" : "Nova senha"}</Label>
               <Input
                 id="password"
                 type="password"
@@ -131,7 +200,7 @@ const ResetPassword = () => {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="confirmPassword">Confirmar nova senha</Label>
+              <Label htmlFor="confirmPassword">{isInvite ? "Confirmar senha" : "Confirmar nova senha"}</Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -147,7 +216,7 @@ const ResetPassword = () => {
 
             <Button type="submit" disabled={submitting} className="w-full h-11" size="lg">
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Redefinir senha
+              {isInvite ? "Ativar conta" : "Redefinir senha"}
             </Button>
           </form>
         )}
@@ -157,7 +226,7 @@ const ResetPassword = () => {
             <Alert className="text-left border-primary/30 bg-primary/5">
               <CheckCircle className="h-4 w-4 text-primary" />
               <AlertDescription className="text-foreground">
-                Senha redefinida com sucesso!
+                {isInvite ? "Conta ativada com sucesso!" : "Senha redefinida com sucesso!"}
               </AlertDescription>
             </Alert>
             <Button onClick={() => navigate("/lobby")} className="w-full">

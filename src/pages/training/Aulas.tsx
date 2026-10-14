@@ -32,11 +32,13 @@ const AoVivo = () => {
   const saveSession = useMutation({
     mutationFn: async (form: SessionFormValues) => {
       if (!trainingId) throw new Error("Treinamento não encontrado");
+      // Data e horas não têm fuso: new Date() as lê no horário local e toISOString() envia em UTC
+      const toIso = (time: string) => (form.date && time ? new Date(`${form.date}T${time}`).toISOString() : null);
       const values = {
         title: form.title,
         meeting_url: form.meeting_url || null,
-        // O input datetime-local não tem fuso: new Date() o lê no horário local e toISOString() envia em UTC
-        scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : null,
+        scheduled_at: toIso(form.start_time),
+        ends_at: toIso(form.end_time),
         is_active: form.is_active,
       };
       if (editing) {

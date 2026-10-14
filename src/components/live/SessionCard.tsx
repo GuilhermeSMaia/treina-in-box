@@ -40,7 +40,9 @@ export function SessionCard({ session, trainingId, variant, onEdit, onDelete }: 
   const date =
     variant === "other"
       ? `Postada em ${format(new Date(session.created_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}`
-      : session.scheduled_at && format(new Date(session.scheduled_at), v.dateFormat, { locale: ptBR });
+      : session.scheduled_at &&
+        format(new Date(session.scheduled_at), v.dateFormat, { locale: ptBR }) +
+          (session.ends_at ? ` – ${format(new Date(session.ends_at), "HH:mm")}` : "");
 
   return (
     <Card className={cn("border shadow-none", v.card)}>
