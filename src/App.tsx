@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
@@ -12,8 +12,8 @@ import Landing from "./pages/Landing";
 import Lobby from "./pages/Lobby";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
-import AoVivo from "./pages/training/AoVivo";
-import Aula from "./pages/training/Aula";
+import Aulas from "./pages/training/Aulas";
+import InfoAulas from "./pages/training/InfoAulas";
 import Conteudo from "./pages/training/Conteudo";
 import Praca from "./pages/training/Praca";
 import MeuEspaco from "./pages/training/MeuEspaco";
@@ -43,8 +43,10 @@ const App = () => (
             <Route path="/treinamentos" element={<ProtectedRoute><Treinamentos /></ProtectedRoute>} />
             <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
             {/* Training context routes */}
-            <Route path="/treino/:trainingId/ao-vivo" element={<TrainingRoute><AoVivo /></TrainingRoute>} />
-            <Route path="/treino/:trainingId/aula/:sessionId" element={<TrainingRoute><Aula /></TrainingRoute>} />
+            <Route path="/treino/:trainingId/aulas" element={<TrainingRoute><Aulas /></TrainingRoute>} />
+            {/* Rota antiga: mantém links salvos funcionando */}
+            <Route path="/treino/:trainingId/ao-vivo" element={<Navigate to="../aulas" relative="path" replace />} />
+            <Route path="/treino/:trainingId/aula/:sessionId" element={<TrainingRoute><InfoAulas /></TrainingRoute>} />
             <Route path="/treino/:trainingId/conteudo" element={<TrainingRoute><Conteudo /></TrainingRoute>} />
             <Route path="/treino/:trainingId/praca" element={<TrainingRoute><Praca /></TrainingRoute>} />
             <Route path="/treino/:trainingId/meu-espaco" element={<TrainingRoute><MeuEspaco /></TrainingRoute>} />

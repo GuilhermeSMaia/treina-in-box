@@ -84,7 +84,7 @@ const Lobby = () => {
         ) : data ? (
           <LobbyTrainings
             trainings={data.trainings}
-            onNavigate={(id) => navigate(`/treino/${id}/ao-vivo`)}
+            onNavigate={(id) => navigate(`/treino/${id}/aulas`)}
           />
         ) : null}
 

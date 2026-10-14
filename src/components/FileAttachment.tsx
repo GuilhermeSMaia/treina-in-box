@@ -11,9 +11,9 @@ import {
 } from "@/components/ui/attachment";
 import { cn } from "@/lib/utils";
 
-type FileKind = "image" | "pdf" | "word" | "pptx" | "other";
+export type FileKind = "image" | "pdf" | "word" | "pptx" | "other";
 
-function getFileKind(name: string, type?: string): FileKind {
+export function getFileKind(name: string, type?: string): FileKind {
   if (type?.startsWith("image/") || /\.(png|jpe?g|gif|webp|svg)$/i.test(name)) return "image";
   if (/\.pdf$/i.test(name)) return "pdf";
   if (/\.docx?$/i.test(name)) return "word";

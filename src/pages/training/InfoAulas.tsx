@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ContentPostCard } from "@/components/content/ContentPostCard";
 import { EmptyState } from "@/components/feedback/EmptyState";
-import { useLiveSessions } from "@/hooks/useLiveSessions";
+import { useLiveSessions, getSessionStatus } from "@/hooks/useLiveSessions";
 import { useContentPosts } from "@/hooks/useContentPosts";
 import { useUserRole } from "@/hooks/useUserRole";
 
@@ -26,8 +26,8 @@ const Aula = () => {
 
   const backLink = (
     <Button variant="ghost" size="sm" className="-ml-2 text-muted-foreground" asChild>
-      <Link to={`${basePath}/ao-vivo`}>
-        <ArrowLeft className="mr-1.5 h-4 w-4" /> Ao Vivo
+      <Link to={`${basePath}/aulas`}>
+        <ArrowLeft className="mr-1.5 h-4 w-4" /> Aulas
       </Link>
     </Button>
   );
@@ -55,13 +55,13 @@ const Aula = () => {
     );
   }
 
-  const status = session.is_active
-    ? { label: "Ao vivo agora", variant: "default" as const }
-    : session.scheduled_at && new Date(session.scheduled_at) > new Date()
-      ? { label: "Agendada", variant: "secondary" as const }
-      : session.scheduled_at
-        ? { label: "Realizada", variant: "outline" as const }
-        : { label: "Sem data", variant: "outline" as const };
+  const status = {
+    content: { label: "Aula de conteúdo", variant: "outline" as const },
+    upcoming: { label: "Agendada", variant: "secondary" as const },
+    live: { label: "Ao vivo agora", variant: "default" as const },
+    past: { label: "Realizada", variant: "outline" as const },
+  }[getSessionStatus(session)];
+  const TypeIcon = session.is_active ? Video : FileText;
 
   return (
     <AppLayout>
@@ -72,8 +72,8 @@ const Aula = () => {
         <Card className={session.is_active ? "border-primary/30 border shadow-none" : "border shadow-none"}>
           <CardContent className="py-5 space-y-4">
             <div className="flex items-start gap-3">
-              <div className="rounded-xl bg-primary/10 p-3 shrink-0">
-                <Video className="h-5 w-5 text-primary" />
+              <div className={session.is_active ? "rounded-xl bg-primary/10 p-3 shrink-0" : "rounded-xl bg-secondary p-3 shrink-0"}>
+                <TypeIcon className={session.is_active ? "h-5 w-5 text-primary" : "h-5 w-5 text-muted-foreground"} />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">

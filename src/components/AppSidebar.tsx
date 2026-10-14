@@ -48,7 +48,7 @@ const mainNavItems = [
 ];
 
 const getTrainingNavItems = (trainingId: string) => [
-  { title: "Ao Vivo", url: `/treino/${trainingId}/ao-vivo`, icon: Video },
+  { title: "Aulas", url: `/treino/${trainingId}/aulas`, icon: Video },
   { title: "Conteúdo", url: `/treino/${trainingId}/conteudo`, icon: FileText },
   { title: "Praça", url: `/treino/${trainingId}/praca`, icon: MessageSquare },
   { title: "Meu Espaço", url: `/treino/${trainingId}/meu-espaco`, icon: Notebook },

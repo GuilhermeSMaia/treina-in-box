@@ -1,13 +1,15 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Paperclip, Pencil, Trash2, Video } from "lucide-react";
+import { Eye, EyeOff, Paperclip, Pencil, Trash2, Video } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { badgeVariants } from "@/components/ui/badge";
 import { RichTextDisplay } from "@/components/RichTextDisplay";
 import { FileAttachment } from "@/components/FileAttachment";
+import { AttachmentPreview, hasPreview } from "@/components/AttachmentPreview";
 import type { ContentPost } from "@/hooks/useContentPosts";
 import { cn } from "@/lib/utils";
 import { getFullName } from "@/lib/names";
@@ -28,6 +30,7 @@ export function ContentPostCard({ post, session, trainingId, onEdit, onDelete, c
   const hasActions = !!onEdit || !!onDelete;
   const hasText = !!post.content && post.content !== "<p></p>";
   const authorName = getFullName(post.profile, "Usuário");
+  const [showPreview, setShowPreview] = useState(false);
 
   return (
     <Card className="border shadow-none">
@@ -80,12 +83,29 @@ export function ContentPostCard({ post, session, trainingId, onEdit, onDelete, c
             {hasText && <RichTextDisplay content={post.content} />}
 
             {post.attachment_url && post.attachment_name && (
-              <div className={cn("space-y-2", hasText && "mt-3 border-t pt-3")}>
-                <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                  <Paperclip className="h-3 w-3" /> Anexo
-                </p>
+              <Collapsible
+                open={showPreview}
+                onOpenChange={setShowPreview}
+                className={cn("space-y-2", hasText && "mt-3 border-t pt-3")}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <Paperclip className="h-3 w-3" /> Anexo
+                  </p>
+                  {hasPreview(post.attachment_name) && (
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground">
+                        {showPreview ? <EyeOff className="mr-1.5 h-3.5 w-3.5" /> : <Eye className="mr-1.5 h-3.5 w-3.5" />}
+                        {showPreview ? "Ocultar prévia" : "Ver prévia"}
+                      </Button>
+                    </CollapsibleTrigger>
+                  )}
+                </div>
+                <CollapsibleContent>
+                  <AttachmentPreview name={post.attachment_name} url={post.attachment_url} />
+                </CollapsibleContent>
                 <FileAttachment name={post.attachment_name} url={post.attachment_url} />
-              </div>
+              </Collapsible>
             )}
 
             <p className="mt-3 border-t pt-2 text-right text-xs text-muted-foreground">

@@ -277,7 +277,7 @@ export default function Treinamentos() {
                   )}
 
                   <button
-                    onClick={() => navigate(`/treino/${t.id}/ao-vivo`)}
+                    onClick={() => navigate(`/treino/${t.id}/aulas`)}
                     className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
                   >
                     {t.cover_url ? (
