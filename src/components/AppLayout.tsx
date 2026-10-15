@@ -11,22 +11,32 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { useTrainings } from "@/hooks/useTrainings";
+import { useLiveSessions } from "@/hooks/useLiveSessions";
 
 const sectionLabels: Record<string, string> = {
-  "ao-vivo": "Ao Vivo",
+  aulas: "Aulas",
   conteudo: "Conteúdo",
   praca: "Praça",
   "meu-espaco": "Meu Espaço",
 };
 
 export function AppLayout({ children }: { children: ReactNode }) {
-  const { trainingId } = useParams();
+  const { trainingId, sessionId } = useParams();
   const location = useLocation();
   const { data: trainings } = useTrainings();
+  const { data: sessions } = useLiveSessions(sessionId ? trainingId : undefined);
 
   const training = trainings?.find((t) => t.id === trainingId);
-  const segment = location.pathname.split("/").pop() ?? "";
-  const sectionLabel = sectionLabels[segment];
+  const basePath = `/treino/${trainingId}`;
+  // Segmento logo após /treino/:id (ex.: "aulas", "conteudo", "aula")
+  const segment = location.pathname.split("/").filter(Boolean)[2] ?? "";
+  // Em /treino/:id/aula/:sessionId a seção é "Aulas" e a aula vira o último item
+  const isSessionPage = segment === "aula" && !!sessionId;
+  const sectionKey = isSessionPage ? "aulas" : segment;
+  const sectionLabel = sectionLabels[sectionKey];
+  const sessionTitle = isSessionPage
+    ? sessions?.find((s) => s.id === sessionId)?.title ?? "Aula"
+    : null;
 
   return (
     <SidebarProvider>
@@ -50,7 +60,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     <BreadcrumbItem>
                       <BreadcrumbLink asChild>
                         <Link
-                          to={`/treino/${trainingId}/conteudo`}
+                          to={`${basePath}/aulas`}
                           className="text-muted-foreground text-sm"
                         >
                           {training.title}
@@ -59,10 +69,31 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     </BreadcrumbItem>
                     <BreadcrumbSeparator />
                     <BreadcrumbItem>
-                      <BreadcrumbPage className="text-sm">
-                        {sectionLabel}
-                      </BreadcrumbPage>
+                      {sessionTitle ? (
+                        <BreadcrumbLink asChild>
+                          <Link
+                            to={`${basePath}/${sectionKey}`}
+                            className="text-muted-foreground text-sm"
+                          >
+                            {sectionLabel}
+                          </Link>
+                        </BreadcrumbLink>
+                      ) : (
+                        <BreadcrumbPage className="text-sm">
+                          {sectionLabel}
+                        </BreadcrumbPage>
+                      )}
                     </BreadcrumbItem>
+                    {sessionTitle && (
+                      <>
+                        <BreadcrumbSeparator />
+                        <BreadcrumbItem>
+                          <BreadcrumbPage className="text-sm truncate max-w-[16rem]">
+                            {sessionTitle}
+                          </BreadcrumbPage>
+                        </BreadcrumbItem>
+                      </>
+                    )}
                   </>
                 )}
               </BreadcrumbList>

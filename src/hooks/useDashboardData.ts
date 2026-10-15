@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { LIVE_WINDOW_HOURS, getSessionStatus } from "@/hooks/useLiveSessions";
 
 export interface Training {
   id: string;
@@ -20,8 +21,12 @@ export interface DashboardData {
   nextSession: {
     title: string;
     scheduled_at: string;
+    ends_at: string | null;
     training_id: string;
+    meeting_url?: string | null;
     trainings: { title: string } | null;
+    /** Entre o horário de início e o de fim da aula */
+    isLive: boolean;
   } | null;
   totalPosts: number;
 }
@@ -33,6 +38,11 @@ export function useDashboardData() {
     queryKey: ["dashboard-data", user?.id],
     queryFn: async (): Promise<DashboardData> => {
       if (!user?.id) throw new Error("Not authenticated");
+
+      // Aulas que ainda não terminaram: fim no futuro, ou (aulas antigas sem fim)
+      // início há menos de LIVE_WINDOW_HOURS
+      const now = new Date();
+      const liveSince = new Date(now.getTime() - LIVE_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
 
       // Fetch all in parallel
       const [
@@ -47,8 +57,10 @@ export function useDashboardData() {
         supabase.from("training_lessons").select("id, module_id"),
         supabase
           .from("live_sessions")
-          .select("title, scheduled_at, training_id, trainings(title)")
-          .gte("scheduled_at", new Date().toISOString())
+          .select("title, scheduled_at, ends_at, is_active, training_id, meeting_url, trainings(title)")
+          .eq("is_active", true)
+          .not("scheduled_at", "is", null)
+          .or(`ends_at.gte.${now.toISOString()},and(ends_at.is.null,scheduled_at.gte.${liveSince})`)
           .order("scheduled_at", { ascending: true })
           .limit(1),
         supabase.from("plaza_posts").select("id", { count: "exact", head: true }),
@@ -80,9 +92,13 @@ export function useDashboardData() {
         };
       });
 
+      const session = nextSessionRes.data?.[0];
+
       return {
         trainings: trainingData,
-        nextSession: nextSessionRes.data?.[0] ?? null,
+        nextSession: session
+          ? { ...session, isLive: getSessionStatus(session, now) === "live" }
+          : null,
         totalPosts: postsRes.count ?? 0,
       };
     },

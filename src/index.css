@@ -53,6 +53,13 @@
     --lobby-background: 0 0% 4%;
     --lobby-card: 0 0% 7%;
 
+    --chat-page: 40 14% 94%;
+    --chat-card: 0 0% 100%;
+    --chat-bubble: 40 16% 95%;
+    --chat-bubble-border: 36 13% 87%;
+    --chat-bubble-own: 43 75% 89%;
+    --chat-bubble-own-border: 43 55% 78%;
+
     --notion-divider: 36 13% 91%;
   }
 
@@ -101,6 +108,13 @@
 
     --lobby-background: 0 0% 4%;
     --lobby-card: 0 0% 7%;
+
+    --chat-page: 30 5% 6%;
+    --chat-card: 30 5% 10%;
+    --chat-bubble: 30 5% 16%;
+    --chat-bubble-border: 30 5% 22%;
+    --chat-bubble-own: 43 40% 22%;
+    --chat-bubble-own-border: 43 40% 30%;
 
     --notion-divider: 30 5% 18%;
   }

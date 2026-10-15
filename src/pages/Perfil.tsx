@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { LogOut, KeyRound, Mail } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/components/feedback/notify";
 
 export default function Perfil() {
   const { user, signOut, resetPassword } = useAuth();
@@ -32,9 +32,9 @@ export default function Perfil() {
     try {
       setSendingReset(true);
       await resetPassword(email);
-      toast.success("E-mail de redefinição enviado. Verifique sua caixa de entrada.");
+      notify.success("E-mail de redefinição enviado. Verifique sua caixa de entrada.");
     } catch {
-      toast.error("Erro ao enviar e-mail de redefinição.");
+      notify.error("Erro ao enviar e-mail de redefinição.");
     } finally {
       setSendingReset(false);
     }

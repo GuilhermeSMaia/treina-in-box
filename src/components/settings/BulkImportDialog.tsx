@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { notify } from "@/components/feedback/notify";
 import { Upload, FileText, CheckCircle2, AlertCircle, MessageCircle, ExternalLink } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTablePagination } from "@/hooks/useTablePagination";
@@ -100,7 +100,6 @@ function markDuplicates(rows: ParsedRow[]): ParsedRow[] {
 
 export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) {
   const { user } = useAuth();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: trainings = [] } = useTrainings();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -134,18 +133,8 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
 
   const validRows = useMemo(() => rows.filter((r) => r.valid), [rows]);
 
-  const {
-    paginatedItems: paginatedRows,
-    currentPage,
-    totalPages,
-    totalItems,
-    hasNextPage,
-    hasPrevPage,
-    nextPage,
-    prevPage,
-    goToPage,
-    resetPage,
-  } = useTablePagination(rows, 10);
+  const pagination = useTablePagination(rows, 10);
+  const { paginatedItems: paginatedRows, currentPage, resetPage } = pagination;
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -184,17 +173,12 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
       return data;
     },
     onSuccess: (data) => {
-      toast({
-        title: "Importação concluída",
-        description: `${data.length} convite(s) criado(s) com sucesso.`,
-      });
+      notify.success("Importação concluída", `${data.length} convite(s) criado(s) com sucesso.`);
       setImportedPhones(data.map((d: any) => ({ phone: d.phone, token: d.invite_token })));
       setShowWhatsAppLinks(true);
       queryClient.invalidateQueries({ queryKey: ["invitations"] });
     },
-    onError: (err: Error) => {
-      toast({ title: "Erro na importação", description: err.message, variant: "destructive" });
-    },
+    onError: (err: Error) => notify.error("Erro na importação", err.message),
   });
 
   const appUrl = window.location.origin;
@@ -328,16 +312,7 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
                 </Table>
               </ScrollArea>
 
-              <TablePagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                totalItems={totalItems}
-                hasNextPage={hasNextPage}
-                hasPrevPage={hasPrevPage}
-                onNextPage={nextPage}
-                onPrevPage={prevPage}
-                onGoToPage={goToPage}
-              />
+              <TablePagination pagination={pagination} />
 
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => handleClose(false)}>Cancelar</Button>

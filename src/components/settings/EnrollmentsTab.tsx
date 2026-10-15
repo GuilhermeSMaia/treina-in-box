@@ -1,18 +1,14 @@
 import { useState } from "react";
-import { useTablePagination } from "@/hooks/useTablePagination";
-import { TablePagination } from "@/components/settings/TablePagination";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
+import { DataTableCard } from "@/components/settings/DataTableCard";
+import { notify } from "@/components/feedback/notify";
+import { getFullName } from "@/lib/names";
 import { UserPlus, Trash2 } from "lucide-react";
 
 export function EnrollmentsTab() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedTraining, setSelectedTraining] = useState<string>("");
   const [selectedUser, setSelectedUser] = useState<string>("");
@@ -64,13 +60,11 @@ export function EnrollmentsTab() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "Aluno matriculado no treinamento" });
+      notify.success("Aluno matriculado no treinamento");
       setSelectedUser("");
       queryClient.invalidateQueries({ queryKey: ["enrollments", selectedTraining] });
     },
-    onError: (err: Error) => {
-      toast({ title: "Erro ao matricular", description: err.message, variant: "destructive" });
-    },
+    onError: (err: Error) => notify.error("Erro ao matricular", err.message),
   });
 
   const removeEnrollment = useMutation({
@@ -79,27 +73,21 @@ export function EnrollmentsTab() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "Matrícula removida" });
+      notify.deleted("Matrícula removida");
       queryClient.invalidateQueries({ queryKey: ["enrollments", selectedTraining] });
     },
-    onError: (err: Error) => {
-      toast({ title: "Erro ao remover", description: err.message, variant: "destructive" });
-    },
+    onError: (err: Error) => notify.error("Erro ao remover", err.message),
   });
 
-  const getUserName = (userId: string) =>
-    students.find((s) => s.user_id === userId)?.username + " " + students.find((s) => s.user_id === userId)?.last_name || "Sem nome";
-
+  const getUserName = (userId: string) => getFullName(students.find((s) => s.user_id === userId));
   const availableStudents = students.filter((s) => !enrolledUserIds.has(s.user_id));
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Matrículas</CardTitle>
-        <CardDescription>Vincule alunos a treinamentos específicos.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-3">
+    <DataTableCard
+      title="Matrículas"
+      description="Vincule alunos a treinamentos específicos."
+      toolbar={
+        <div className="flex flex-col gap-3 sm:flex-row">
           <div className="flex-1">
             <Select value={selectedTraining} onValueChange={setSelectedTraining}>
               <SelectTrigger><SelectValue placeholder="Selecione um treinamento" /></SelectTrigger>
@@ -117,7 +105,7 @@ export function EnrollmentsTab() {
                   <SelectTrigger><SelectValue placeholder="Selecione um aluno" /></SelectTrigger>
                   <SelectContent>
                     {availableStudents.map((s) => (
-                      <SelectItem key={s.user_id} value={s.user_id}>{s.username + " " + s.last_name || "Sem nome"}</SelectItem>
+                      <SelectItem key={s.user_id} value={s.user_id}>{getFullName(s)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -128,59 +116,38 @@ export function EnrollmentsTab() {
             </>
           )}
         </div>
-
-        {selectedTraining && (
-          isLoading ? (
-            <div className="space-y-2">{[1, 2].map((i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
-          ) : enrollments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum aluno matriculado neste treinamento.</p>
-          ) : (
-            <EnrollmentsTableWithPagination enrollments={enrollments} getUserName={getUserName} removeEnrollment={removeEnrollment} />
-          )
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function EnrollmentsTableWithPagination({ enrollments, getUserName, removeEnrollment }: { enrollments: any[]; getUserName: (id: string) => string; removeEnrollment: any }) {
-  const pagination = useTablePagination(enrollments);
-  return (
-    <>
-      <div className="overflow-x-auto -mx-6 px-6">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Aluno</TableHead>
-              <TableHead>Inscrito em</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {pagination.paginatedItems.map((e: any) => (
-              <TableRow key={e.id}>
-                <TableCell className="font-medium">{getUserName(e.user_id)}</TableCell>
-                <TableCell className="text-muted-foreground text-xs">{new Date(e.enrolled_at).toLocaleDateString("pt-BR")}</TableCell>
-                <TableCell className="text-right">
-                  <Button size="sm" variant="destructive" onClick={() => removeEnrollment.mutate(e.id)} disabled={removeEnrollment.isPending}>
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-      <TablePagination
-        currentPage={pagination.currentPage}
-        totalPages={pagination.totalPages}
-        totalItems={pagination.totalItems}
-        hasNextPage={pagination.hasNextPage}
-        hasPrevPage={pagination.hasPrevPage}
-        onNextPage={pagination.nextPage}
-        onPrevPage={pagination.prevPage}
-        onGoToPage={pagination.goToPage}
-      />
-    </>
+      }
+      items={enrollments}
+      getRowKey={(e) => e.id}
+      isLoading={!!selectedTraining && isLoading}
+      emptyMessage={
+        selectedTraining
+          ? "Nenhum aluno matriculado neste treinamento."
+          : "Selecione um treinamento para ver os alunos matriculados."
+      }
+      columns={[
+        { header: "Aluno", cellClassName: "font-medium", cell: (e) => getUserName(e.user_id) },
+        {
+          header: "Inscrito em",
+          cellClassName: "text-xs text-muted-foreground",
+          cell: (e) => new Date(e.enrolled_at).toLocaleDateString("pt-BR"),
+        },
+        {
+          header: "Ações",
+          className: "text-right",
+          cell: (e) => (
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => removeEnrollment.mutate(e.id)}
+              disabled={removeEnrollment.isPending}
+              aria-label="Remover matrícula"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          ),
+        },
+      ]}
+    />
   );
 }

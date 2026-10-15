@@ -114,6 +114,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          session_id: string | null
           training_id: string
           updated_at: string
           user_id: string
@@ -124,6 +125,7 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          session_id?: string | null
           training_id: string
           updated_at?: string
           user_id: string
@@ -134,11 +136,20 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          session_id?: string | null
           training_id?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "content_posts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "live_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invitations: {
         Row: {
@@ -222,6 +233,7 @@ export type Database = {
       live_sessions: {
         Row: {
           created_at: string
+          ends_at: string | null
           id: string
           is_active: boolean
           meeting_url: string | null
@@ -231,6 +243,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          ends_at?: string | null
           id?: string
           is_active?: boolean
           meeting_url?: string | null
@@ -240,6 +253,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          ends_at?: string | null
           id?: string
           is_active?: boolean
           meeting_url?: string | null
@@ -259,6 +273,7 @@ export type Database = {
       }
       plaza_posts: {
         Row: {
+          attachments: Json
           content: string
           created_at: string
           id: string
@@ -267,6 +282,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          attachments?: Json
           content: string
           created_at?: string
           id?: string
@@ -275,6 +291,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          attachments?: Json
           content?: string
           created_at?: string
           id?: string
@@ -319,30 +336,44 @@ export type Database = {
       }
       space_posts: {
         Row: {
+          attachments: Json
           content: string
           created_at: string
           id: string
+          session_id: string | null
           training_id: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          attachments?: Json
           content: string
           created_at?: string
           id?: string
+          session_id?: string | null
           training_id: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          attachments?: Json
           content?: string
           created_at?: string
           id?: string
+          session_id?: string | null
           training_id?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "space_posts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "live_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       training_enrollments: {
         Row: {

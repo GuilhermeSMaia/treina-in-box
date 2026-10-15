@@ -1,29 +1,32 @@
 import { useState } from "react";
-import { useTablePagination } from "@/hooks/useTablePagination";
-import { TablePagination } from "@/components/settings/TablePagination";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { useToast } from "@/hooks/use-toast";
+import { DataTableCard } from "@/components/settings/DataTableCard";
+import { ConfirmDeleteDialog } from "@/components/feedback/ConfirmDeleteDialog";
+import { notify } from "@/components/feedback/notify";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+
+interface TrainingRow {
+  id: string;
+  title: string;
+  description: string | null;
+  created_at: string;
+}
 
 export function TrainingsTab() {
   const { user } = useAuth();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const { data: trainings = [], isLoading } = useQuery({
     queryKey: ["trainings"],
@@ -33,7 +36,7 @@ export function TrainingsTab() {
         .select("id, title, description, created_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as TrainingRow[];
     },
   });
 
@@ -49,14 +52,12 @@ export function TrainingsTab() {
       }
     },
     onSuccess: () => {
-      toast({ title: editingId ? "Treinamento atualizado" : "Treinamento criado" });
+      notify.success(editingId ? "Treinamento atualizado" : "Treinamento criado");
       setDialogOpen(false);
       resetForm();
       queryClient.invalidateQueries({ queryKey: ["trainings"] });
     },
-    onError: (err: Error) => {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
-    },
+    onError: (err: Error) => notify.error("Erro", err.message),
   });
 
   const remove = useMutation({
@@ -65,17 +66,16 @@ export function TrainingsTab() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "Treinamento excluído" });
+      notify.deleted("Treinamento excluído");
+      setDeleteTargetId(null);
       queryClient.invalidateQueries({ queryKey: ["trainings"] });
     },
-    onError: (err: Error) => {
-      toast({ title: "Erro ao excluir", description: err.message, variant: "destructive" });
-    },
+    onError: (err: Error) => notify.error("Erro ao excluir", err.message),
   });
 
   const resetForm = () => { setEditingId(null); setTitle(""); setDescription(""); };
 
-  const openEdit = (t: { id: string; title: string; description: string | null }) => {
+  const openEdit = (t: TrainingRow) => {
     setEditingId(t.id);
     setTitle(t.title);
     setDescription(t.description ?? "");
@@ -83,13 +83,11 @@ export function TrainingsTab() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-lg">Treinamentos</CardTitle>
-            <CardDescription>Crie, edite ou exclua treinamentos.</CardDescription>
-          </div>
+    <>
+      <DataTableCard
+        title="Treinamentos"
+        description="Crie, edite ou exclua treinamentos."
+        headerAction={
           <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
             <DialogTrigger asChild>
               <Button size="sm"><Plus className="mr-1 h-4 w-4" />Novo</Button>
@@ -113,75 +111,48 @@ export function TrainingsTab() {
               </form>
             </DialogContent>
           </Dialog>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
-        ) : trainings.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhum treinamento criado.</p>
-        ) : (
-          <TrainingsTableWithPagination trainings={trainings} openEdit={openEdit} remove={remove} />
-        )}
-      </CardContent>
-    </Card>
-  );
-}
+        }
+        items={trainings}
+        getRowKey={(t) => t.id}
+        isLoading={isLoading}
+        emptyMessage="Nenhum treinamento criado."
+        columns={[
+          { header: "Título", cellClassName: "font-medium", cell: (t) => t.title },
+          {
+            header: "Descrição",
+            cellClassName: "max-w-48 truncate text-xs text-muted-foreground",
+            cell: (t) => t.description || "—",
+          },
+          {
+            header: "Criado em",
+            cellClassName: "text-xs text-muted-foreground",
+            cell: (t) => new Date(t.created_at).toLocaleDateString("pt-BR"),
+          },
+          {
+            header: "Ações",
+            className: "text-right",
+            cellClassName: "space-x-2",
+            cell: (t) => (
+              <>
+                <Button size="sm" variant="outline" onClick={() => openEdit(t)} aria-label="Editar treinamento">
+                  <Pencil className="h-3 w-3" />
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => setDeleteTargetId(t.id)} aria-label="Excluir treinamento">
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </>
+            ),
+          },
+        ]}
+      />
 
-function TrainingsTableWithPagination({ trainings, openEdit, remove }: { trainings: any[]; openEdit: (t: any) => void; remove: any }) {
-  const pagination = useTablePagination(trainings);
-  return (
-    <>
-      <div className="overflow-x-auto -mx-6 px-6">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Título</TableHead>
-              <TableHead>Descrição</TableHead>
-              <TableHead>Criado em</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {pagination.paginatedItems.map((t: any) => (
-              <TableRow key={t.id}>
-                <TableCell className="font-medium">{t.title}</TableCell>
-                <TableCell className="text-muted-foreground text-xs max-w-48 truncate">{t.description || "—"}</TableCell>
-                <TableCell className="text-muted-foreground text-xs">{new Date(t.created_at).toLocaleDateString("pt-BR")}</TableCell>
-                <TableCell className="text-right space-x-2">
-                  <Button size="sm" variant="outline" onClick={() => openEdit(t)}>
-                    <Pencil className="h-3 w-3" />
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button size="sm" variant="destructive"><Trash2 className="h-3 w-3" /></Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Excluir treinamento?</AlertDialogTitle>
-                        <AlertDialogDescription>Esta ação é irreversível. Todos os módulos, aulas e vínculos serão removidos.</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => remove.mutate(t.id)}>Excluir</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-      <TablePagination
-        currentPage={pagination.currentPage}
-        totalPages={pagination.totalPages}
-        totalItems={pagination.totalItems}
-        hasNextPage={pagination.hasNextPage}
-        hasPrevPage={pagination.hasPrevPage}
-        onNextPage={pagination.nextPage}
-        onPrevPage={pagination.prevPage}
-        onGoToPage={pagination.goToPage}
+      <ConfirmDeleteDialog
+        open={!!deleteTargetId}
+        onOpenChange={(o) => !o && setDeleteTargetId(null)}
+        onConfirm={() => deleteTargetId && remove.mutate(deleteTargetId)}
+        title="Excluir treinamento?"
+        description="Esta ação é irreversível. Todos os módulos, aulas e vínculos serão removidos."
+        isPending={remove.isPending}
       />
     </>
   );

@@ -67,6 +67,16 @@ export default {
           DEFAULT: "hsl(var(--lobby-background))",
           card: "hsl(var(--lobby-card))",
         },
+        chat: {
+          page: "hsl(var(--chat-page) / <alpha-value>)",
+          card: "hsl(var(--chat-card) / <alpha-value>)",
+          bubble: {
+            DEFAULT: "hsl(var(--chat-bubble) / <alpha-value>)",
+            border: "hsl(var(--chat-bubble-border) / <alpha-value>)",
+            own: "hsl(var(--chat-bubble-own) / <alpha-value>)",
+            "own-border": "hsl(var(--chat-bubble-own-border) / <alpha-value>)",
+          },
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
