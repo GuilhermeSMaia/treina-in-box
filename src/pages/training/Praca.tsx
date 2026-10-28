@@ -12,7 +12,17 @@ import { useAuth } from "@/contexts/AuthContext";
 const Praca = () => {
   const { trainingId } = useParams();
   const { user } = useAuth();
-  const { posts, isLoading, createPost, updatePost, deletePost, uploadFile } = usePlazaPosts(trainingId);
+  const {
+    posts,
+    isLoading,
+    reactionsByPost,
+    createPost,
+    updatePost,
+    deletePost,
+    togglePin,
+    toggleReaction,
+    uploadFile,
+  } = usePlazaPosts(trainingId);
   const { isAdminOrOwner, isMentor } = useUserRole();
   const { isExpired } = useEnrollmentStatus();
   const canModerate = isAdminOrOwner || isMentor;
@@ -22,8 +32,9 @@ const Praca = () => {
       posts.map((post) => ({
         ...post,
         author: { name: post.profile?.username ?? null, avatar_url: post.profile?.avatar_url ?? null },
+        reactions: reactionsByPost.get(post.id) ?? [],
       })),
-    [posts]
+    [posts, reactionsByPost]
   );
 
   return (
@@ -45,9 +56,22 @@ const Praca = () => {
               description: "Seja o primeiro a compartilhar algo com a turma!",
             }}
             onUploadFile={uploadFile}
-            onSend={async (content, attachments) => {
+            allowReply
+            allowReactions
+            allowEmoji
+            onToggleReaction={toggleReaction}
+            canPin={canModerate}
+            onTogglePin={async (id, pinned) => {
               try {
-                await createPost.mutateAsync({ content, attachments });
+                await togglePin.mutateAsync({ id, pinned });
+                return true;
+              } catch {
+                return false;
+              }
+            }}
+            onSend={async (content, attachments, replyToId) => {
+              try {
+                await createPost.mutateAsync({ content, attachments, replyToId });
                 return true;
               } catch {
                 return false;

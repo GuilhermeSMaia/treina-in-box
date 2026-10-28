@@ -2,16 +2,19 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <title>Treina in Box</title>
     <script>
-      var path = window.location.pathname;
-      var search = window.location.search;
-      var hash = window.location.hash;
-      var query = search.slice(1).split('&').filter(Boolean);
-      query.push('p=' + encodeURIComponent(path.slice(1).replace(/&/g, '~and~')));
-      window.location.replace(
-        window.location.protocol + '//' + window.location.hostname +
-        (window.location.port ? ':' + window.location.port : '') +
-        '/' + (query.length ? '?' + query.join('&') : '') + hash
+      // SPA no GitHub Pages (projeto em /treina-in-box-main/):
+      // converte /treina-in-box-main/rota?x=1 em /treina-in-box-main/?/rota&x=1
+      // e o index.html restaura a URL original. Mantém o #hash (tokens de login).
+      var pathSegmentsToKeep = 1;
+      var l = window.location;
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
+        l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
       );
     </script>
   </head>

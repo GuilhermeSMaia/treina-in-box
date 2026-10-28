@@ -9,6 +9,11 @@ export interface ChatAttachment {
   size: number;
 }
 
+export interface ChatReaction {
+  emoji: string;
+  userIds: string[];
+}
+
 export interface ChatMessage {
   id: string;
   user_id: string;
@@ -16,6 +21,10 @@ export interface ChatMessage {
   attachments: ChatAttachment[];
   created_at: string;
   updated_at: string;
+  /** Mensagem à qual esta responde (opcional: só a Praça usa). */
+  reply_to_id?: string | null;
+  pinned_at?: string | null;
+  reactions?: ChatReaction[];
   author?: {
     name: string | null;
     avatar_url: string | null;
@@ -113,4 +122,14 @@ export function groupMessages(messages: ChatMessage[]): ChatMessage[][] {
     else groups.push([message]);
   }
   return groups;
+}
+
+/** Resumo curto de uma mensagem (para citações e para a barra de fixadas). */
+export function messageSnippet(message: Pick<ChatMessage, "content" | "attachments">, max = 120): string {
+  const text = htmlToText(message.content).replace(/\s+/g, " ").trim();
+  if (text) return text.length > max ? `${text.slice(0, max).trimEnd()}…` : text;
+  if (message.attachments.length > 0) {
+    return message.attachments.every(isImageAttachment) ? "📷 Foto" : "📎 Anexo";
+  }
+  return "";
 }

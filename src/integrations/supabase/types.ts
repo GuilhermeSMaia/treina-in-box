@@ -277,6 +277,9 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          pinned_at: string | null
+          pinned_by: string | null
+          reply_to_id: string | null
           training_id: string
           updated_at: string
           user_id: string
@@ -286,6 +289,9 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          pinned_at?: string | null
+          pinned_by?: string | null
+          reply_to_id?: string | null
           training_id: string
           updated_at?: string
           user_id: string
@@ -295,8 +301,38 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          pinned_at?: string | null
+          pinned_by?: string | null
+          reply_to_id?: string | null
           training_id?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      plaza_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          post_id: string
+          training_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          id?: string
+          post_id: string
+          training_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          post_id?: string
+          training_id?: string
           user_id?: string
         }
         Relationships: []
@@ -556,6 +592,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_invitation_by_token: {
+        Args: { _token: string }
+        Returns: {
+          email: string
+          role: Database["public"]["Enums"]["app_role"]
+          training_title: string | null
+        }[]
+      }
+      has_pending_invitation: {
+        Args: { _email: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

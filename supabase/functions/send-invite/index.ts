@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 const json = (body: unknown, status = 200) =>
@@ -30,13 +31,13 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: claimsData, error: claimsError } =
-      await supabaseUser.auth.getClaims(authHeader.replace("Bearer ", ""));
-    if (claimsError || !claimsData?.claims) {
+    const { data: userData, error: userError } =
+      await supabaseUser.auth.getUser(authHeader.replace("Bearer ", ""));
+    if (userError || !userData?.user) {
       return json({ error: "Unauthorized" }, 401);
     }
 
-    const callerId = claimsData.claims.sub as string;
+    const callerId = userData.user.id;
 
     // Service role client for privileged operations
     const supabaseAdmin = createClient(
@@ -90,7 +91,7 @@ Deno.serve(async (req) => {
 
     if (inviteError) {
       const alreadyExists =
-        inviteError.status === 422 ||
+        (inviteError as { code?: string }).code === "email_exists" ||
         /already (been )?registered|already exists/i.test(inviteError.message);
       return json(
         {
@@ -98,7 +99,7 @@ Deno.serve(async (req) => {
             ? "Já existe uma conta com este email."
             : inviteError.message,
         },
-        alreadyExists ? 409 : 500
+        alreadyExists ? 409 : 400
       );
     }
 

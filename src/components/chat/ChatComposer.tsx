@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Paperclip, Send } from "lucide-react";
+import { CornerUpLeft, Loader2, Paperclip, Send, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { AttachmentGroup } from "@/components/ui/attachment";
 import { FileAttachment } from "@/components/FileAttachment";
+import { EmojiPickerButton } from "./EmojiPicker";
 import { ACCEPTED_ATTR, ACCEPTED_MIME, MAX_FILES, MAX_FILE_SIZE, formatBytes } from "./chat-utils";
 
 interface PendingFile {
@@ -18,11 +19,18 @@ export function ChatComposer({
   isSending,
   allowAttachments = true,
   placeholder = "Escreva uma mensagem...",
+  allowEmoji = false,
+  replyTo = null,
+  onCancelReply,
 }: {
   onSend: (text: string, files: File[]) => Promise<boolean>;
   isSending: boolean;
   allowAttachments?: boolean;
   placeholder?: string;
+  allowEmoji?: boolean;
+  /** Mensagem sendo respondida: mostra a faixa de citação acima do campo. */
+  replyTo?: { id: string; name: string; snippet: string } | null;
+  onCancelReply?: () => void;
 }) {
   const [text, setText] = useState("");
   const [pending, setPending] = useState<PendingFile[]>([]);
@@ -78,6 +86,24 @@ export function ChatComposer({
     }
   };
 
+  const insertEmoji = (emoji: string) => {
+    const el = textareaRef.current;
+    const start = el?.selectionStart ?? text.length;
+    const end = el?.selectionEnd ?? text.length;
+    setText((t) => t.slice(0, start) + emoji + t.slice(end));
+    requestAnimationFrame(() => {
+      if (!el) return;
+      el.focus();
+      const pos = start + emoji.length;
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
+  // Ao escolher uma mensagem para responder, leva o cursor para o campo
+  useEffect(() => {
+    if (replyTo?.id) textareaRef.current?.focus();
+  }, [replyTo?.id]);
+
   // Auto-ajusta a altura do textarea conforme o conteúdo
   useEffect(() => {
     const el = textareaRef.current;
@@ -95,6 +121,26 @@ export function ChatComposer({
         addFiles(Array.from(e.dataTransfer.files));
       }}
     >
+      {replyTo && (
+        <div className="mb-2 flex items-start gap-2 rounded-xl border-l-4 border-primary/60 bg-muted/60 px-3 py-2">
+          <CornerUpLeft className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold text-primary">Respondendo a {replyTo.name}</p>
+            <p className="line-clamp-2 text-xs text-muted-foreground">{replyTo.snippet}</p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 shrink-0"
+            onClick={onCancelReply}
+            aria-label="Cancelar resposta"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
       {pending.length > 0 && (
         <AttachmentGroup className="px-1 pb-2">
           {pending.map((p) => (
@@ -140,12 +186,17 @@ export function ChatComposer({
             </Button>
           </>
         )}
+        {allowEmoji && <EmojiPickerButton onPick={insertEmoji} disabled={isSending} />}
         <Textarea
           ref={textareaRef}
           rows={1}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
+            if (e.key === "Escape" && replyTo) {
+              onCancelReply?.();
+              return;
+            }
             if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault();
               submit();
