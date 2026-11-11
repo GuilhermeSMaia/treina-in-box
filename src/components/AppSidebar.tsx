@@ -143,7 +143,7 @@ export function AppSidebar() {
           <DropdownMenuTrigger asChild>
             <button className="flex w-full items-center gap-2.5 px-2 pb-2 rounded-md hover:bg-sidebar-accent transition-colors outline-none">
               <Avatar className="h-7 w-7">
-                <AvatarImage src={user?.user_metadata?.avatar_url} />
+                <AvatarImage src={profile?.avatar_url || user?.user_metadata?.avatar_url || undefined} className="object-cover" />
                 <AvatarFallback className="bg-sidebar-accent text-gold text-xs">
                   {initials}
                 </AvatarFallback>
@@ -151,7 +151,7 @@ export function AppSidebar() {
               {!collapsed && (
                 <div className="flex-1 min-w-0 text-left">
                   <p className="text-xs font-medium text-sidebar-foreground truncate">
-                    {profile?.username || "Usuário"}
+                    {getFullName(profile, "Usuário")}
                   </p>
                   <p className="text-[10px] text-gold-muted truncate">
                     {user?.email}

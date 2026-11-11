@@ -62,31 +62,17 @@ const Landing = () => {
     if (!inviteToken) return;
     (async () => {
       try {
-        const { data } = await supabase
-          .from("invitations")
-          .select("email, role, training_id")
-          .eq("invite_token", inviteToken)
-          .eq("status", "pending")
-          .maybeSingle();
+        const { data: rows } = await supabase.rpc("get_invitation_by_token", { _token: inviteToken });
+        const data = rows?.[0];
 
         if (data) {
-          const isRealEmail = data.email && !data.email.startsWith("link-");
+          const isRealEmail = data.email && !data.email.startsWith("link-") && !data.email.startsWith("import-");
           if (isRealEmail) setEmail(data.email);
-
-          let trainingTitle: string | undefined;
-          if (data.training_id) {
-            const { data: t } = await supabase
-              .from("trainings")
-              .select("title")
-              .eq("id", data.training_id)
-              .maybeSingle();
-            trainingTitle = t?.title ?? undefined;
-          }
 
           setInviteData({
             email: isRealEmail ? data.email : undefined,
             role: data.role,
-            training_title: trainingTitle,
+            training_title: data.training_title ?? undefined,
           });
         } else {
           setError("Este convite não é válido ou já foi utilizado.");
@@ -168,12 +154,9 @@ const Landing = () => {
 
         // If no invite token, check by email
         if (!inviteToken) {
-          const { data: invitation } = await supabase
-            .from("invitations")
-            .select("id")
-            .eq("email", email.trim().toLowerCase())
-            .eq("status", "pending")
-            .maybeSingle();
+          const { data: invitation } = await supabase.rpc("has_pending_invitation", {
+            _email: email.trim().toLowerCase(),
+          });
 
           if (!invitation) {
             setError("Este email não possui um convite válido. Solicite um convite ao administrador.");

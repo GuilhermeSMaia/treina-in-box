@@ -16,10 +16,20 @@ import { SearchInput } from "@/components/SearchInput";
 import { StatusBadge, INVITATION_STATUS_BADGES, ROLE_BADGES } from "@/components/StatusBadge";
 import { ConfirmDeleteDialog } from "@/components/feedback/ConfirmDeleteDialog";
 import { notify } from "@/components/feedback/notify";
+import { copyText } from "@/lib/clipboard";
+import { getAppUrl, getInviteLink, getWhatsAppUrl, normalizeWhatsAppPhone } from "@/lib/appUrl";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 type Channel = "email" | "whatsapp" | "link";
+
+interface CreatedInvite {
+  link: string;
+  channel: Channel;
+  phone?: string;
+  email?: string;
+  emailError?: string;
+}
 
 export function InvitationsTab() {
   const { user } = useAuth();
@@ -39,6 +49,8 @@ export function InvitationsTab() {
   const [filterChannel, setFilterChannel] = useState("all");
   const [filterRole, setFilterRole] = useState("all");
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [createdInvite, setCreatedInvite] = useState<CreatedInvite | null>(null);
+  const [createdCopied, setCreatedCopied] = useState(false);
 
   const allowedInviteRoles: AppRole[] = isOwner
     ? ["admin", "mentor", "student"]
@@ -58,7 +70,7 @@ export function InvitationsTab() {
     },
   });
 
-  const appUrl = `${window.location.origin}${import.meta.env.BASE_URL}`.replace(/\/$/, "");
+  const appUrl = getAppUrl();
 
   const sendInviteEmail = async (invitationId: string) => {
     const { data, error } = await supabase.functions.invoke("send-invite", {
@@ -87,65 +99,66 @@ export function InvitationsTab() {
   }, [invitations, searchQuery, filterStatus, filterChannel, filterRole]);
 
   const sendInvite = useMutation({
-    mutationFn: async () => {
-  if (!user?.id) throw new Error("Não autenticado");
+    mutationFn: async (): Promise<CreatedInvite> => {
+      if (!user?.id) throw new Error("Não autenticado");
 
-  const payload: Record<string, unknown> = {
-    role,
-    invited_by: user.id,
-    channel,
-    training_id: trainingId && trainingId !== "none" ? trainingId : null,
-    email: channel === "email" ? email.trim().toLowerCase() : `link-${Date.now()}@invite`,
-    phone: channel === "whatsapp" ? phone.trim() : null,
-  };
+      const normalizedPhone = channel === "whatsapp" ? normalizeWhatsAppPhone(phone) : null;
+      if (channel === "whatsapp" && (normalizedPhone?.length ?? 0) < 12) {
+        throw new Error("Telefone inválido. Informe DDD e número (ex.: 11 99999-9999).");
+      }
 
-  const { data, error } = await supabase
-    .from("invitations")
-    .insert(payload as any)
-    .select()
-    .single();
+      const payload = {
+        role,
+        invited_by: user.id,
+        channel,
+        training_id: trainingId && trainingId !== "none" ? trainingId : null,
+        email:
+          channel === "email"
+            ? email.trim().toLowerCase()
+            : `link-${crypto.randomUUID()}@invite`,
+        phone: normalizedPhone,
+      };
 
-  if (error) throw error;
+      const { data, error } = await supabase
+        .from("invitations")
+        .insert(payload)
+        .select()
+        .single();
+      if (error) throw error;
+      if (!data.invite_token) throw new Error("Token do convite não foi gerado. Aplique as migrations do Supabase.");
 
-  let invitation = data;
+      const result: CreatedInvite = {
+        link: getInviteLink(data.invite_token),
+        channel,
+        phone: normalizedPhone ?? undefined,
+        email: channel === "email" ? payload.email : undefined,
+      };
 
-  // Se o token não veio no insert (trigger assíncrono), busca novamente
-  if (!invitation.invite_token) {
-    const { data: fetched, error: fetchError } = await supabase
-      .from("invitations")
-      .select("*")
-      .eq("id", data.id)
-      .single();
+      if (channel === "email") {
+        try {
+          await sendInviteEmail(data.id);
+        } catch (err) {
+          // O convite já existe: o admin ainda pode compartilhar o link manualmente.
+          result.emailError = (err as Error).message;
+        }
+      }
 
-    if (fetchError) throw fetchError;
-    if (!fetched.invite_token) throw new Error("Token não gerado. Verifique o trigger no Supabase.");
-    invitation = fetched;
-  }
+      return result;
+    },
+    onSuccess: async (result) => {
+      setCreatedInvite(result);
+      setCreatedCopied(false);
 
-  if (channel === "email") {
-    try {
-      await sendInviteEmail(invitation.id);
-    } catch (err) {
-      throw new Error(`Convite registrado, mas o email não foi enviado: ${(err as Error).message}`);
-    }
-  }
-
-  return invitation;
-},    onSuccess: (data) => {
-      const inviteLink = `${appUrl}/?invite=${data.invite_token}`;
-
-      if (channel === "whatsapp") {
-        const cleanPhone = phone.replace(/\D/g, "");
-        const msg = encodeURIComponent(
-          `Você foi convidado para participar do treinamento na Treina in Box! Acesse: ${inviteLink}`
-        );
-        window.open(`https://wa.me/${cleanPhone}?text=${msg}`, "_blank");
-        notify.success("Convite criado", "WhatsApp aberto com o link de convite.");
-      } else if (channel === "link") {
-        navigator.clipboard.writeText(inviteLink);
-        notify.success("Link gerado e copiado!", inviteLink);
+      if (result.emailError) {
+        notify.error("Convite criado, mas o email não foi enviado", result.emailError);
+      } else if (result.channel === "email") {
+        notify.success("Convite enviado", `Email de convite enviado para ${result.email}.`);
+      } else if (result.channel === "link") {
+        const ok = await copyText(result.link);
+        notify.success(ok ? "Link gerado e copiado!" : "Link gerado", ok ? undefined : "Copie o link exibido abaixo.");
+        setCreatedCopied(ok);
       } else {
-        notify.success("Convite enviado", `Email de convite enviado para ${email}.`);
+        notify.success("Convite criado", "Use o botão do WhatsApp abaixo para enviar a mensagem.");
       }
 
       setEmail("");
@@ -155,7 +168,7 @@ export function InvitationsTab() {
       queryClient.invalidateQueries({ queryKey: ["invitations"] });
     },
     onError: (err: Error) => {
-      notify.error("Erro ao enviar convite", err.message);
+      notify.error("Erro ao criar convite", err.message);
       queryClient.invalidateQueries({ queryKey: ["invitations"] });
     },
   });
@@ -174,16 +187,16 @@ export function InvitationsTab() {
   });
 
   const resendInvite = async (inv: any) => {
-    const inviteLink = `${appUrl}/?invite=${inv.invite_token}`;
+    const inviteLink = getInviteLink(inv.invite_token);
     const ch = inv.channel ?? "email";
     if (ch === "whatsapp") {
-      const cleanPhone = (inv.phone ?? "").replace(/\D/g, "");
-      const msg = encodeURIComponent(`Você foi convidado para participar do treinamento na Treina in Box! Acesse: ${inviteLink}`);
-      window.open(`https://wa.me/${cleanPhone}?text=${msg}`, "_blank");
+      // Sem await antes: o window.open precisa acontecer dentro do clique.
+      window.open(getWhatsAppUrl(inv.phone ?? "", inviteLink), "_blank", "noopener,noreferrer");
       notify.success("WhatsApp aberto com o convite");
     } else if (ch === "link") {
-      navigator.clipboard.writeText(inviteLink);
-      notify.success("Link copiado novamente!");
+      const ok = await copyText(inviteLink);
+      if (ok) notify.success("Link copiado novamente!");
+      else notify.error("Não foi possível copiar", inviteLink);
     } else {
       try {
         await sendInviteEmail(inv.id);
@@ -195,8 +208,12 @@ export function InvitationsTab() {
     }
   };
 
-  const copyLink = (token: string) => {
-    navigator.clipboard.writeText(`${appUrl}/?invite=${token}`);
+  const copyLink = async (token: string) => {
+    const ok = await copyText(getInviteLink(token));
+    if (!ok) {
+      notify.error("Não foi possível copiar", getInviteLink(token));
+      return;
+    }
     setCopiedId(token);
     setTimeout(() => setCopiedId(null), 2000);
   };
@@ -292,8 +309,8 @@ export function InvitationsTab() {
               )}
               {channel === "whatsapp" && (
                 <div className="flex-1 space-y-1.5">
-                  <Label htmlFor="invite-phone">Telefone (com DDD e código do país)</Label>
-                  <Input id="invite-phone" type="tel" placeholder="5511999999999" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+                  <Label htmlFor="invite-phone">Telefone (com DDD; o +55 é adicionado sozinho)</Label>
+                  <Input id="invite-phone" type="tel" placeholder="11 99999-9999" value={phone} onChange={(e) => setPhone(e.target.value)} required />
                 </div>
               )}
               {channel === "link" && (
@@ -312,6 +329,52 @@ export function InvitationsTab() {
           </form>
         </CardContent>
       </Card>
+
+      {createdInvite && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">
+              {createdInvite.channel === "link" ? "Link de convite gerado" : "Convite criado"}
+            </CardTitle>
+            <CardDescription>
+              {createdInvite.emailError
+                ? `O email não pôde ser enviado (${createdInvite.emailError}). Você pode compartilhar o link manualmente.`
+                : createdInvite.channel === "whatsapp"
+                  ? "Clique no botão abaixo para abrir a conversa no WhatsApp."
+                  : "Compartilhe este link com a pessoa convidada."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input readOnly value={createdInvite.link} onFocus={(e) => e.currentTarget.select()} className="font-mono text-xs" />
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0 gap-2"
+                onClick={async () => {
+                  const ok = await copyText(createdInvite.link);
+                  setCreatedCopied(ok);
+                  if (!ok) notify.error("Não foi possível copiar", "Selecione o link e copie manualmente.");
+                }}
+              >
+                {createdCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                {createdCopied ? "Copiado" : "Copiar link"}
+              </Button>
+              {createdInvite.channel === "whatsapp" && createdInvite.phone && (
+                <Button asChild className="shrink-0 gap-2">
+                  <a href={getWhatsAppUrl(createdInvite.phone, createdInvite.link)} target="_blank" rel="noopener noreferrer">
+                    <MessageCircle className="h-4 w-4" />
+                    Abrir WhatsApp
+                  </a>
+                </Button>
+              )}
+            </div>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setCreatedInvite(null)}>
+              Fechar
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <DataTableCard
         title="Convites Enviados"

@@ -14,6 +14,7 @@ import { Upload, FileText, CheckCircle2, AlertCircle, MessageCircle, ExternalLin
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTablePagination } from "@/hooks/useTablePagination";
 import { TablePagination } from "@/components/settings/TablePagination";
+import { getInviteLink, getWhatsAppUrl } from "@/lib/appUrl";
 
 interface ParsedRow {
   nome: string;
@@ -181,12 +182,8 @@ export function BulkImportDialog({ open, onOpenChange }: BulkImportDialogProps) 
     onError: (err: Error) => notify.error("Erro na importação", err.message),
   });
 
-  const appUrl = window.location.origin;
-
   const openWhatsApp = (phone: string, token: string) => {
-    const link = `${appUrl}/?invite=${token}`;
-    const msg = encodeURIComponent(`Você foi convidado para participar do treinamento na Treina in Box! Acesse: ${link}`);
-    window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
+    window.open(getWhatsAppUrl(phone, getInviteLink(token)), "_blank", "noopener,noreferrer");
   };
 
   const reset = () => {
