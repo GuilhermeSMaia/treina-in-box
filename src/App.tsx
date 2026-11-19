@@ -35,7 +35,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter basename="/treina-in-box-main"> 
+      <BrowserRouter basename={import.meta.env.BASE_URL}> 
         <AuthProvider>
           <Routes>
             <Route path="/" element={<Landing />} />
