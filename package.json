@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://GuilhermeSMaia.github.io/treina-in-box-main",
+  "homepage": "https://GuilhermeSMaia.github.io/treina-in-box",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

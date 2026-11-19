@@ -5,7 +5,7 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: "/treina-in-box-main/",
+  base: "/treina-in-box/",
   server: {
     host: "::",
     port: 8080,
